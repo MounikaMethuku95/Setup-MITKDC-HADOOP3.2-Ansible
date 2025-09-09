@@ -2,5 +2,5 @@ dn: {{ basedn }}
 objectClass: top
 objectClass: dcObject
 objectClass: organization
-o: {{ basedn | regex_replace('dc=', '') | regex_replace(',', ' ') | title }} Cluster
+o: Hadoop Test Cluster
 dc: {{ basedn.split(',')[0].split('=')[1] }}
