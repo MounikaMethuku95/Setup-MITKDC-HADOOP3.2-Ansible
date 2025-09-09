@@ -4,6 +4,7 @@
     state: present
   loop:
   - krb5-server
+  - krb5-server-ldap 
   - krb5-libs
   - krb5-workstation
   - openldap-clients
