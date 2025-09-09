@@ -1,4 +1,4 @@
-dn: olcDatabase={2}hdb,cn=config
+dn: {{ ldap_db_dn }}
 changetype: modify
 replace: olcSuffix
 olcSuffix: {{ basedn }}

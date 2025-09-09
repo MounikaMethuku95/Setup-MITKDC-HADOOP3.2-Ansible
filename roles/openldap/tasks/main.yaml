@@ -1,4 +1,3 @@
----
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -11,10 +10,10 @@
   ansible.builtin.service:
     name: slapd
     state: started
-    enabled: yes
+    enabled: true
 
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: slappasswd -s {{ ldap_rootpw }}
+  ansible.builtin.command: slappasswd -s "{{ ldap_rootpw }}"
   register: rootpw_hash
   changed_when: false
 
@@ -24,8 +23,7 @@
     dest: /tmp/configure-rootdn.ldif
 
 - name: Apply LDAP rootDN and suffix config
-  ansible.builtin.command:
-    cmd: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
   args:
     creates: /var/lib/ldap/rootdn_configured
 
@@ -40,62 +38,54 @@
     dest: /tmp/basedn.ldif
 
 - name: Add baseDN entry to LDAP
-  community.general.ldap_entry:
-    dn: "{{ basedn }}"
-    objectClass:
-      - top
-      - dcObject
-      - organization
-    attributes:
-      o: Hadoop Test Cluster
-      dc: "{{ basedn.split(',')[0].split('=')[1] }}"
-    bind_dn: "{{ ldap_rootdn }}"
-    bind_pw: "{{ ldap_rootpw }}"
-    server_uri: "ldap://localhost"
+  ansible.builtin.command: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
+  args:
+    creates: /var/lib/ldap/basedn_added
 
 - name: Create marker file for baseDN
   ansible.builtin.file:
-    path: /var/lib/ldap/basedn_configured
+    path: /var/lib/ldap/basedn_added
     state: touch
 
-# ──────────────────────────────
-# Kerberos schema block
-# ──────────────────────────────
-- block:
-    - name: Check if kerberos schema already added
-      ansible.builtin.command: >
-        ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=config cn=kerberos
-      register: kerberos_schema_check
-      failed_when: false
-      changed_when: false
+# --- Kerberos schema support ---
+- name: Check if kerberos schema already added
+  ansible.builtin.command: ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" cn=kerberos
+  register: kerberos_schema_check
+  changed_when: false
+  failed_when: false
 
-    - name: Create minimal slapd.conf for kerberos schema
-      ansible.builtin.template:
-        src: kerberos_convert.conf.j2
-        dest: /tmp/kerberos_convert.conf
-      when: kerberos_schema_check.rc != 0
+- name: Ensure temporary kerberos schema directory is clean
+  ansible.builtin.file:
+    path: /tmp/kerberos_schema
+    state: absent
+  when: kerberos_schema_check.rc != 0
 
-    - name: Convert kerberos.schema to LDIF
-      ansible.builtin.command:
-        cmd: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
-      when: kerberos_schema_check.rc != 0
+- name: Create minimal slapd.conf for kerberos schema
+  ansible.builtin.template:
+    src: kerberos_convert.conf.j2
+    dest: /tmp/kerberos_convert.conf
+  when: kerberos_schema_check.rc != 0
 
-    - name: Add Kerberos schema to slapd
-      ansible.builtin.command:
-        cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
-      when: kerberos_schema_check.rc != 0
+- name: Convert kerberos.schema to LDIF
+  ansible.builtin.command: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
+  when: kerberos_schema_check.rc != 0
 
-  rescue:
-    - name: Warn if kerberos schema import failed
-      ansible.builtin.debug:
-        msg: "Kerberos schema import failed. Check slapd logs for details."
+- name: Find converted kerberos schema LDIF
+  ansible.builtin.find:
+    paths: /tmp/kerberos_schema/cn=config/cn=schema
+    patterns: "cn=*kerberos.ldif"
+  register: kerberos_ldif_file
+  when: kerberos_schema_check.rc != 0
 
-  always:
-    - name: Cleanup temporary kerberos schema files
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /tmp/kerberos_convert.conf
-        - /tmp/kerberos_schema
-      ignore_errors: yes
+- name: Add Kerberos schema to slapd
+  ansible.builtin.command: ldapadd -Y EXTERNAL -H ldapi:/// -f {{ kerberos_ldif_file.files[0].path }}
+  when: kerberos_schema_check.rc != 0 and kerberos_ldif_file.matched > 0
+
+- name: Cleanup temporary kerberos schema files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/kerberos_convert.conf
+    - /tmp/kerberos_schema
+  when: kerberos_schema_check.rc != 0
