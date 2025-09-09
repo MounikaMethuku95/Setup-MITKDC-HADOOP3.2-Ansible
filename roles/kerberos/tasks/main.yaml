@@ -8,6 +8,7 @@
   - krb5-libs
   - krb5-workstation
   - openldap-clients
+  - python-ldap
 
 - name: Ensure Kerberos subtree exists in LDAP
   community.general.ldap_entry:
