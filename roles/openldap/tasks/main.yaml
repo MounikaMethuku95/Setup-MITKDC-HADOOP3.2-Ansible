@@ -1,4 +1,4 @@
----
+# Install OpenLDAP server and client
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -7,33 +7,20 @@
     - openldap-servers
     - openldap-clients
 
+# Enable and start slapd service
 - name: Start and enable slapd
   ansible.builtin.service:
     name: slapd
     state: started
     enabled: yes
 
+# Generate hashed LDAP root password
 - name: Generate hashed LDAP root password
   ansible.builtin.command: slappasswd -s {{ ldap_rootpw }}
   register: rootpw_hash
   changed_when: false
 
-# 🔹 Discover correct database DN (works for hdb/mdb)
-- name: Discover main LDAP database DN
-  ansible.builtin.command: >
-    ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config '(olcDatabase=*)' dn
-  register: ldap_db_search
-  changed_when: false
-
-- name: Extract database DN (skip frontend/config)
-  ansible.builtin.set_fact:
-    ldap_db_dn: >-
-      {{ (ldap_db_search.stdout_lines
-          | select('match', '^dn: olcDatabase={[0-9]+}(hdb|mdb),cn=config')
-          | list
-          | first
-          | regex_replace('^dn: ', '')) }}
-
+# Render LDIF for suffix and rootDN
 - name: Render LDIF for suffix and rootDN
   ansible.builtin.template:
     src: configure-rootdn.ldif.j2
@@ -42,18 +29,20 @@
     group: root
     mode: '0600'
 
+# Apply LDAP rootDN and suffix config
 - name: Apply LDAP rootDN and suffix config
   ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
   args:
     creates: /etc/openldap/slapd.d/olcRootPW.set
 
+# Create marker file to avoid reapplying rootDN config
 - name: Create marker file to avoid reapplying rootDN config
   ansible.builtin.file:
     path: /etc/openldap/slapd.d/olcRootPW.set
     state: touch
 
-# Ensure base DN entry exists
-- name: Render LDIF for base DN
+# Render LDIF for baseDN
+- name: Render baseDN LDIF
   ansible.builtin.template:
     src: basedn.ldif.j2
     dest: /tmp/basedn.ldif
@@ -61,32 +50,53 @@
     group: root
     mode: '0600'
 
-- name: Add base DN to LDAP
-  ansible.builtin.command: >
-    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
-  args:
-    creates: /etc/openldap/slapd.d/basedn.set
+# Ensure baseDN entry exists in LDAP
+- name: Ensure baseDN entry exists in LDAP
+  community.general.ldap_entry:
+    dn: "{{ basedn }}"
+    objectClass:
+      - top
+      - dcObject
+      - organization
+    attributes:
+      o: Hadoop Test Cluster
+      dc: "{{ basedn.split(',')[0].split('=')[1] }}"
+    server_uri: ldapi:///
+    bind_dn: "{{ ldap_rootdn }}"
+    bind_pw: "{{ ldap_rootpw }}"
 
-- name: Create marker file for basedn
-  ansible.builtin.file:
-    path: /etc/openldap/slapd.d/basedn.set
-    state: touch
+# Check if Kerberos schema exists on the system
+- name: Check if Kerberos schema exists
+  ansible.builtin.stat:
+    path: /etc/openldap/schema/kerberos.schema
+  register: kerberos_schema_file
 
-# Load Kerberos schema so krbContainer objectClass is available
-- name: Ensure temporary directory for schema conversion exists
-  ansible.builtin.file:
-    path: /tmp/kerberos_schema
-    state: directory
-    mode: '0755'
+# If schema is not found, copy our bundled version
+- name: Copy bundled Kerberos schema file if not present
+  ansible.builtin.copy:
+    src: kerberos.schema
+    dest: /etc/openldap/schema/kerberos.schema
+    owner: root
+    group: root
+    mode: '0644'
+  when: not kerberos_schema_file.stat.exists
 
+# Convert Kerberos schema to LDIF
 - name: Convert Kerberos schema to LDIF
-  ansible.builtin.command: >
-    slaptest -f /etc/openldap/schema/kerberos.schema -F /tmp/kerberos_schema
+  ansible.builtin.command:
+    cmd: slaptest -f /etc/openldap/schema/kerberos.schema -F /tmp/kerberos_schema
   args:
-    creates: /tmp/kerberos_schema/cn=config/cn=schema
+    creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
 
-- name: Add Kerberos schema to LDAP
-  ansible.builtin.command: >
-    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+# Add Kerberos schema to LDAP config (idempotent)
+- name: Add Kerberos schema to LDAP config
+  ansible.builtin.command:
+    cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
   args:
     creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
+
+# Cleanup temporary schema directory
+- name: Remove temporary Kerberos schema directory
+  ansible.builtin.file:
+    path: /tmp/kerberos_schema
+    state: absent

@@ -7,4 +7,4 @@ replace: olcRootDN
 olcRootDN: {{ ldap_rootdn }}
 -
 replace: olcRootPW
-olcRootPW: {{ ldap_rootpw }}
+olcRootPW: {{ rootpw_hash.stdout }}
