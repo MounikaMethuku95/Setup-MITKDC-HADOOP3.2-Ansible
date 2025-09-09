@@ -1,11 +1,3 @@
-basedn: "dc=hadoop,dc=test"
-ldap_rootdn: "cn=admin,dc=hadoop,dc=test"
-ldap_rootpw: "supergirl123"
-krb_subtree: "ou=Kerberos,dc=hadoop,dc=test"
-kdc_ldap_dn: "cn=krb-svc,dc=hadoop,dc=test"
-kdc_ldap_pw: "annoyingking321"
-
----
 # OpenLDAP role defaults
 
 # Base distinguished name for Hadoop test cluster
