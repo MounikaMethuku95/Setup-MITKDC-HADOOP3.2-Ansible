@@ -13,3 +13,7 @@ krb_subtree: "cn=Kerberos,{{ basedn }}"
 # Kerberos service account distinguished name (inside Kerberos container)
 kdc_ldap_dn: "cn=krb-svc,cn=Kerberos,{{ basedn }}"
 kdc_ldap_pw: "annoyingking321"
+
+# Default DB type (can be hdb or mdb depending on OS)
+ldap_db_type: "{2}hdb"
+

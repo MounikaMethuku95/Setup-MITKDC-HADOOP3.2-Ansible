@@ -1,11 +1,13 @@
-dn: cn=Kerberos,{{ basedn }}
+# Organizational Unit for Kerberos
+dn: {{ krb_subtree }}
 objectClass: top
-objectClass: krbContainer
-cn: Kerberos
+objectClass: organizationalUnit
+ou: Kerberos
 
+# Kerberos service account (used by KDC to bind to LDAP)
 dn: {{ kdc_ldap_dn }}
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: krb-svc
-description: Kerberos service account
+description: Kerberos LDAP service account
 userPassword: {{ kdc_ldap_pw }}

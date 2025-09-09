@@ -1,3 +1,5 @@
+---
+
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -10,12 +12,23 @@
   ansible.builtin.service:
     name: slapd
     state: started
-    enabled: true
+    enabled: yes
 
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: slappasswd -s "{{ ldap_rootpw }}"
+  ansible.builtin.command: slappasswd -s {{ ldap_rootpw }}
   register: rootpw_hash
+  changed_when: rootpw_hash.rc == 0
+
+# 🔍 Detect whether backend is hdb or mdb
+- name: Detect LDAP database type
+  ansible.builtin.shell: |
+    ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=config" "(objectClass=olcDatabaseConfig)" dn | grep -E "olcDatabase=\{[0-9]+\}(hdb|mdb)"
+  register: ldap_db_detect
   changed_when: false
+
+- name: Set ldap_db_type fact
+  ansible.builtin.set_fact:
+    ldap_db_type: "{{ ldap_db_detect.stdout_lines[0].split(': ')[1].split(',')[0] }}"
 
 - name: Render LDIF for suffix and rootDN
   ansible.builtin.template:
@@ -23,13 +36,14 @@
     dest: /tmp/configure-rootdn.ldif
 
 - name: Apply LDAP rootDN and suffix config
-  ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  ansible.builtin.command:
+    cmd: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
   args:
-    creates: /var/lib/ldap/rootdn_configured
+    creates: /etc/openldap/rootdn_configured
 
 - name: Create marker file to avoid reapplying rootDN config
   ansible.builtin.file:
-    path: /var/lib/ldap/rootdn_configured
+    path: /etc/openldap/rootdn_configured
     state: touch
 
 - name: Render LDIF for baseDN entry
@@ -38,54 +52,12 @@
     dest: /tmp/basedn.ldif
 
 - name: Add baseDN entry to LDAP
-  ansible.builtin.command: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
+  ansible.builtin.command:
+    cmd: ldapadd -x -D {{ ldap_rootdn }} -w {{ ldap_rootpw }} -f /tmp/basedn.ldif
   args:
-    creates: /var/lib/ldap/basedn_added
+    creates: /etc/openldap/basedn_added
 
 - name: Create marker file for baseDN
   ansible.builtin.file:
-    path: /var/lib/ldap/basedn_added
+    path: /etc/openldap/basedn_added
     state: touch
-
-# --- Kerberos schema support ---
-- name: Check if kerberos schema already added
-  ansible.builtin.command: ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" cn=kerberos
-  register: kerberos_schema_check
-  changed_when: false
-  failed_when: false
-
-- name: Ensure temporary kerberos schema directory is clean
-  ansible.builtin.file:
-    path: /tmp/kerberos_schema
-    state: absent
-  when: kerberos_schema_check.rc != 0
-
-- name: Create minimal slapd.conf for kerberos schema
-  ansible.builtin.template:
-    src: kerberos_convert.conf.j2
-    dest: /tmp/kerberos_convert.conf
-  when: kerberos_schema_check.rc != 0
-
-- name: Convert kerberos.schema to LDIF
-  ansible.builtin.command: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
-  when: kerberos_schema_check.rc != 0
-
-- name: Find converted kerberos schema LDIF
-  ansible.builtin.find:
-    paths: /tmp/kerberos_schema/cn=config/cn=schema
-    patterns: "cn=*kerberos.ldif"
-  register: kerberos_ldif_file
-  when: kerberos_schema_check.rc != 0
-
-- name: Add Kerberos schema to slapd
-  ansible.builtin.command: ldapadd -Y EXTERNAL -H ldapi:/// -f {{ kerberos_ldif_file.files[0].path }}
-  when: kerberos_schema_check.rc != 0 and kerberos_ldif_file.matched > 0
-
-- name: Cleanup temporary kerberos schema files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/kerberos_convert.conf
-    - /tmp/kerberos_schema
-  when: kerberos_schema_check.rc != 0

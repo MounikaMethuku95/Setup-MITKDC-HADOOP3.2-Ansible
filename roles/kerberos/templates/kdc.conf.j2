@@ -1,20 +1,23 @@
 [kdcdefaults]
-  kdc_ports = 88
-  kdc_tcp_ports = 88
+ kdc_ports = 88
+ kdc_tcp_ports = 88
 
 [realms]
-  {{ realm }} = {
-    database_module = openldap_ldapconf
-    max_renewable_life = 7d
-  }
+ {{ realm }} = {
+  # Location of the Kerberos database (LDAP backend)
+  database_module = openldap_ldapconf
+  admin_keytab = FILE:/var/kerberos/krb5kdc/kadm5.keytab
+  max_life = 10h
+  max_renewable_life = 7d
+ }
 
 [dbmodules]
-  openldap_ldapconf = {
-    db_library = kldap
-    ldap_kerberos_container_dn = {{ krb_subtree }}
-    ldap_kdc_dn = {{ kdc_ldap_dn }}
-    ldap_kadmind_dn = {{ kdc_ldap_dn }}
-    ldap_service_password_file = /var/kerberos/krb5kdc/ldap.stash
-    ldap_servers = ldapi:///
-    ldap_conns_per_server = 5
-  }
+ openldap_ldapconf = {
+  db_library = kldap
+  ldap_kerberos_container_dn = {{ krb_subtree }}
+  ldap_kdc_dn = {{ kdc_ldap_dn }}
+  ldap_kadmind_dn = {{ kdc_ldap_dn }}
+  ldap_service_password_file = /etc/krb5kdc/service.keyfile
+  ldap_servers = ldapi:///
+  ldap_conns_per_server = 5
+ }

@@ -1,17 +1,20 @@
 [libdefaults]
-  default_realm = {{ realm }}
-  dns_lookup_realm = false
-  dns_lookup_kdc = false
-  ticket_lifetime = 24h
-  renew_lifetime = 7d
-  forwardable = true
+ default_realm = {{ realm }}
+ dns_lookup_realm = false
+ dns_lookup_kdc = false
+ ticket_lifetime = 24h
+ renew_lifetime = 7d
+ forwardable = true
+ rdns = false
+ # Helps avoid hostname reverse-DNS issues
+ udp_preference_limit = 1
 
 [realms]
-  {{ realm }} = {
-    kdc = localhost
-    admin_server = localhost
-  }
+ {{ realm }} = {
+  kdc = localhost
+  admin_server = localhost
+ }
 
 [domain_realm]
-  .hadoop.test = {{ realm }}
-  hadoop.test = {{ realm }}
+ .hadoop.test = {{ realm }}
+ hadoop.test = {{ realm }}
