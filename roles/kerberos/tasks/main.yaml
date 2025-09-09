@@ -24,19 +24,64 @@
     group: root
     mode: "0644"
 
-- name: Ensure Kerberos subtree LDIF exists
+# LDAP subtree and service account 
+
+- name: Hash KDC LDAP bind password
+  ansible.builtin.command: slappasswd -s "{{ kdc_ldap_pw }}"
+  register: kdc_pw_hash
+  changed_when: false
+
+- name: Render LDIF for Kerberos OU
   ansible.builtin.template:
-    src: kerberos-subtree.ldif.j2
-    dest: /tmp/kerberos-subtree.ldif
+    src: kerberos-ou.ldif.j2
+    dest: /tmp/kerberos-ou.ldif
     owner: root
     group: root
     mode: "0600"
 
-- name: Ensure Kerberos subtree and service account exist in LDAP
+- name: Render LDIF for krb-svc account
+  ansible.builtin.template:
+    src: krb-svc.ldif.j2
+    dest: /tmp/krb-svc.ldif
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Check if Kerberos OU exists
   ansible.builtin.command: >
-    ldapmodify -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -a -f /tmp/kerberos-subtree.ldif
-  register: kerberos_subtree_result
-  changed_when: "'adding new entry' in kerberos_subtree_result.stdout"
+    ldapsearch -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -b "{{ krb_subtree }}" -s base "(objectClass=*)" dn
+  register: ou_check
+  failed_when: false
+  changed_when: false
+
+- name: Add Kerberos OU if missing
+  ansible.builtin.command: >
+    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -f /tmp/kerberos-ou.ldif
+  when: ou_check.rc != 0
+  register: ou_add
+  changed_when: "'adding new entry' in (ou_add.stdout | default(''))"
+  failed_when: ou_add.rc not in [0]
+
+- name: Check if krb-svc account exists
+  ansible.builtin.command: >
+    ldapsearch -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -b "{{ kdc_ldap_dn }}" -s base "(objectClass=*)" dn
+  register: svc_check
+  failed_when: false
+  changed_when: false
+
+- name: Add krb-svc account if missing
+  ansible.builtin.command: >
+    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -f /tmp/krb-svc.ldif
+  when: svc_check.rc != 0
+  register: svc_add
+  changed_when: "'adding new entry' in (svc_add.stdout | default(''))"
+  failed_when: svc_add.rc not in [0]
+
+# Kerberos DB setup 
 
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
@@ -52,6 +97,8 @@
   args:
     creates: /var/kerberos/krb5kdc/ldap.stash
 
+# Services 
+
 - name: Enable and start krb5kdc
   ansible.builtin.service:
     name: krb5kdc
@@ -65,4 +112,3 @@
     state: started
     enabled: yes
   notify: Restart kadmin
-  
