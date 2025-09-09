@@ -36,11 +36,11 @@
   ansible.builtin.command: >
     ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/kerberos-subtree.ldif
   args:
-    creates: /etc/krb5kdc/kerberos-subtree.set
+    creates: /var/kerberos/krb5kdc/kerberos-subtree.set
 
 - name: Create marker file for Kerberos subtree
   ansible.builtin.file:
-    path: /etc/krb5kdc/kerberos-subtree.set
+    path: /var/kerberos/krb5kdc/kerberos-subtree.set
     state: touch
 
 - name: Create Kerberos database with LDAP backend
