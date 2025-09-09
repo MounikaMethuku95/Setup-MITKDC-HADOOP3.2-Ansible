@@ -7,3 +7,11 @@
 #   ansible.builtin.service:
 #     name: kadmin
 #     state: restarted
+
+- name: Restart Kerberos services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - krb5kdc
+    - kadmin

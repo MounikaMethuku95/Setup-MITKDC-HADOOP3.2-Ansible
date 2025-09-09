@@ -10,6 +10,19 @@
   - openldap-clients
   - python-ldap
 
+# Ensure required LDAP objects exist before creating realm
+- name: Ensure Kerberos container exists
+  community.general.ldap_entry:
+    dn: "cn=krbContainer,{{ basedn }}"
+    objectClass:
+      - top
+      - krbContainer
+    attributes:
+      cn: krbContainer
+    bind_dn: "{{ ldap_rootdn }}"
+    bind_pw: "{{ ldap_rootpw }}"
+    server_uri: "ldap://localhost"
+
 - name: Ensure Kerberos subtree exists in LDAP
   community.general.ldap_entry:
     dn: "{{ krb_subtree }}"
@@ -36,6 +49,7 @@
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
 
+# Create the realm in LDAP backend
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
     kdb5_ldap_util -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
@@ -44,6 +58,7 @@
   args:
     creates: "/var/kerberos/krb5kdc/.k5.{{ realm }}"
 
+# Deploy configs with handlers
 - name: Deploy krb5.conf
   ansible.builtin.template:
     src: krb5.conf.j2
@@ -51,6 +66,7 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Restart Kerberos services
 
 - name: Deploy kdc.conf
   ansible.builtin.template:
@@ -59,6 +75,7 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Restart Kerberos services
 
 - name: Deploy kadm5.acl
   ansible.builtin.template:
@@ -67,11 +84,12 @@
     owner: root
     group: root
     mode: '0644'
+  notify: Restart Kerberos services
 
-- name: Ensure KDC and admin services are enabled and running
+# Enable services (restart handled by handlers if needed)
+- name: Ensure KDC and admin services are enabled
   ansible.builtin.service:
     name: "{{ item }}"
-    state: started
     enabled: yes
   loop:
     - krb5kdc
