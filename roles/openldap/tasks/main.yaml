@@ -1,4 +1,3 @@
----
 - name: Install OpenLDAP
   ansible.builtin.package:
     name:
@@ -39,49 +38,46 @@
 # -----------------------------
 # Kerberos schema handling
 # -----------------------------
+- block:
+    - name: Check if system already has kerberos.ldif
+      ansible.builtin.stat:
+        path: /usr/share/openldap/schema/kerberos.ldif
+      register: kerberos_ldif
 
-- name: Check if system already has kerberos.ldif
-  ansible.builtin.stat:
-    path: /usr/share/openldap/schema/kerberos.ldif
-  register: kerberos_ldif
+    - name: Copy kerberos.ldif if available
+      ansible.builtin.command:
+        cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /usr/share/openldap/schema/kerberos.ldif
+      when: kerberos_ldif.stat.exists
+      args:
+        creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
+      notify: Restart slapd
 
-- name: Copy kerberos.ldif if available
-  ansible.builtin.command:
-    cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /usr/share/openldap/schema/kerberos.ldif
-  when: kerberos_ldif.stat.exists
-  args:
-    creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
-  notify: Restart slapd
+    - name: Create minimal slapd.conf for kerberos schema
+      ansible.builtin.template:
+        src: kerberos_convert.conf.j2
+        dest: /tmp/kerberos_convert.conf
+      when: not kerberos_ldif.stat.exists
 
-- name: Create minimal slapd.conf for kerberos schema
-  ansible.builtin.template:
-    src: kerberos_convert.conf.j2
-    dest: /tmp/kerberos_convert.conf
-  when: not kerberos_ldif.stat.exists
+    - name: Convert kerberos.schema to LDIF
+      ansible.builtin.command:
+        cmd: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
+      when: not kerberos_ldif.stat.exists
+      args:
+        creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
 
-- name: Convert kerberos.schema to LDIF
-  ansible.builtin.command:
-    cmd: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
-  when: not kerberos_ldif.stat.exists
-  args:
-    creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+    - name: Add kerberos schema to slapd
+      ansible.builtin.command:
+        cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+      when: not kerberos_ldif.stat.exists
+      args:
+        creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
+      notify: Restart slapd
 
-- name: Add kerberos schema to slapd
-  ansible.builtin.command:
-    cmd: ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
-  when: not kerberos_ldif.stat.exists
-  args:
-    creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
-  notify: Restart slapd
-
-# -----------------------------
-# Cleanup temporary files
-# -----------------------------
-- name: Cleanup temporary kerberos schema files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/kerberos_convert.conf
-    - /tmp/kerberos_schema
-  when: not kerberos_ldif.stat.exists
+  always:
+    - name: Cleanup temporary kerberos schema files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/kerberos_convert.conf
+        - /tmp/kerberos_schema
