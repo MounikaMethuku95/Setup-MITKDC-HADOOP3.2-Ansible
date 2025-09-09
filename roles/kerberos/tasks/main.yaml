@@ -24,7 +24,7 @@
     group: root
     mode: "0644"
 
-- name: Ensure Kerberos subtree exists in LDAP
+- name: Ensure Kerberos subtree LDIF exists
   ansible.builtin.template:
     src: kerberos-subtree.ldif.j2
     dest: /tmp/kerberos-subtree.ldif
@@ -32,16 +32,11 @@
     group: root
     mode: "0600"
 
-- name: Add Kerberos subtree and service account to LDAP
+- name: Ensure Kerberos subtree and service account exist in LDAP
   ansible.builtin.command: >
-    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/kerberos-subtree.ldif
-  args:
-    creates: /var/kerberos/krb5kdc/kerberos-subtree.set
-
-- name: Create marker file for Kerberos subtree
-  ansible.builtin.file:
-    path: /var/kerberos/krb5kdc/kerberos-subtree.set
-    state: touch
+    ldapmodify -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -a -f /tmp/kerberos-subtree.ldif
+  register: kerberos_subtree_result
+  changed_when: "'adding new entry' in kerberos_subtree_result.stdout"
 
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
@@ -70,3 +65,4 @@
     state: started
     enabled: yes
   notify: Restart kadmin
+  
