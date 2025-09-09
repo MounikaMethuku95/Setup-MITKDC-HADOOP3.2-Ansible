@@ -1,0 +1,6 @@
+dn: {{ basedn }}
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Hadoop Test Cluster
+dc: {{ basedn.split(',')[0].split('=')[1] }}

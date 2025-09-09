@@ -1,3 +1,4 @@
+---
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -17,7 +18,7 @@
   register: rootpw_hash
   changed_when: false
 
-#  Discover correct database DN (works for hdb/mdb)
+# 🔹 Discover correct database DN (works for hdb/mdb)
 - name: Discover main LDAP database DN
   ansible.builtin.command: >
     ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config '(olcDatabase=*)' dn
@@ -33,7 +34,7 @@
           | first
           | regex_replace('^dn: ', '')) }}
 
-- name: Give LDIF for suffix and rootDN
+- name: Render LDIF for suffix and rootDN
   ansible.builtin.template:
     src: configure-rootdn.ldif.j2
     dest: /tmp/configure-rootdn.ldif
@@ -49,4 +50,24 @@
 - name: Create marker file to avoid reapplying rootDN config
   ansible.builtin.file:
     path: /etc/openldap/slapd.d/olcRootPW.set
+    state: touch
+
+# Ensure base DN entry exists
+- name: Render LDIF for base DN
+  ansible.builtin.template:
+    src: basedn.ldif.j2
+    dest: /tmp/basedn.ldif
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Add base DN to LDAP
+  ansible.builtin.command: >
+    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
+  args:
+    creates: /etc/openldap/slapd.d/basedn.set
+
+- name: Create marker file for basedn
+  ansible.builtin.file:
+    path: /etc/openldap/slapd.d/basedn.set
     state: touch
