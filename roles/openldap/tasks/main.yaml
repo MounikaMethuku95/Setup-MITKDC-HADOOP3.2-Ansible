@@ -12,22 +12,25 @@
     state: started
     enabled: yes
 
-# olcSuffix → tells LDAP what the “root” of your directory tree is (dc=hadoop,dc=test).
-# olcRootDN → the distinguished name (DN) of the LDAP administrator (cn=admin,dc=hadoop,dc=test).
-# olcRootPW → the password hash for that admin user.
-- name: Configure olcSuffix, olcRootDN, olcRootPW 
-  shell: |   ##LDAP Data Interchange Format
-    cat <<'LDIF' | ldapmodify -Y EXTERNAL -H ldapi:///    
-    dn: olcDatabase={2}hdb,cn=config
-    changetype: modify
-    replace: olcSuffix
-    olcSuffix: {{ basedn }}
-    -
-    replace: olcRootDN
-    olcRootDN: {{ ldap_rootdn }}
-    -
-    replace: olcRootPW
-    olcRootPW: {{ ldap_rootpw }}
-    LDIF
+- name: Generate hashed LDAP root password
+  ansible.builtin.command: slappasswd -s {{ ldap_rootpw }}
+  register: rootpw_hash
+  changed_when: false
+
+- name: Render LDIF for suffix and rootDN
+  ansible.builtin.template:
+    src: configure-rootdn.ldif.j2
+    dest: /tmp/configure-rootdn.ldif
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Apply LDAP rootDN and suffix config
+  ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
   args:
     creates: /etc/openldap/slapd.d/olcRootPW.set
+
+- name: Create marker file to avoid reapplying rootDN config
+  ansible.builtin.file:
+    path: /etc/openldap/slapd.d/olcRootPW.set
+    state: touch
