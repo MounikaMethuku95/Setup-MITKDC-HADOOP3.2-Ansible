@@ -1,0 +1,8 @@
+- name: Deploy openldap,MITKDC,Hadoop and ssh
+  hosts: kdc_ldap_hadoop
+  become: yes
+  roles:
+  - openldap
+  - kerberos
+  - ssh
+  - hadoop
