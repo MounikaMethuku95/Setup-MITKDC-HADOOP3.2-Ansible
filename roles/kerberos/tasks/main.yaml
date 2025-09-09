@@ -87,7 +87,8 @@
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
     kdb5_ldap_util -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    create -subtrees "{{ krb_subtree }}" -r "{{ realm }}" -s
+    create -subtrees "{{ krb_subtree }}" -r "{{ realm }}" -s 
+    -P "{{ kdc_master_pw }}"
   args:
     creates: /var/kerberos/krb5kdc/.k5.{{ realm }}
 

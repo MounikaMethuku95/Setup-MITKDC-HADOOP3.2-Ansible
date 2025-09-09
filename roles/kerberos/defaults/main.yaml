@@ -1,1 +1,2 @@
 realm: HADOOP.TEST
+kdc_master_pw: "Idontknow123"
