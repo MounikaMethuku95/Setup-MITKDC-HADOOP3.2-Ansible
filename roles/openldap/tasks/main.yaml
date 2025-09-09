@@ -1,10 +1,12 @@
-- name: Install OpenLDAP
+---
+# OpenLDAP Role - Tasks
+
+- name: Install OpenLDAP packages
   ansible.builtin.package:
-    name: "{{ item }}"
+    name:
+      - openldap-servers
+      - openldap-clients
     state: present
-  loop:
-    - openldap-servers
-    - openldap-clients
 
 - name: Start and enable slapd
   ansible.builtin.service:
@@ -12,6 +14,9 @@
     state: started
     enabled: yes
 
+# --------------------------------------------------------------------
+# LDAP root password setup
+# --------------------------------------------------------------------
 - name: Generate hashed LDAP root password
   ansible.builtin.command: slappasswd -s {{ ldap_rootpw }}
   register: rootpw_hash
@@ -35,7 +40,33 @@
     path: /etc/openldap/slapd.d/olcRootPW.set
     state: touch
 
-- name: Render LDIF for base domain entry
+# --------------------------------------------------------------------
+# Kerberos schema setup
+# --------------------------------------------------------------------
+- name: Copy Kerberos schema into place
+  ansible.builtin.copy:
+    src: kerberos.schema
+    dest: /etc/openldap/schema/kerberos.schema
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Convert Kerberos schema to LDIF
+  ansible.builtin.command: >
+    slaptest -f /etc/openldap/schema/kerberos.schema -F /tmp/kerberos_schema
+  args:
+    creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+
+- name: Add Kerberos schema to slapd
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+  args:
+    creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
+
+# --------------------------------------------------------------------
+# Base DN creation
+# --------------------------------------------------------------------
+- name: Render LDIF for baseDN
   ansible.builtin.template:
     src: basedn.ldif.j2
     dest: /tmp/basedn.ldif
@@ -43,12 +74,13 @@
     group: root
     mode: '0600'
 
-- name: Apply base domain entry
-  ansible.builtin.command: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
+- name: Add baseDN entry
+  ansible.builtin.command: >
+    ldapadd -x -D {{ ldap_rootdn }} -w {{ ldap_rootpw }} -f /tmp/basedn.ldif
   args:
     creates: /etc/openldap/slapd.d/basedn.set
 
-- name: Create marker file for base domain entry
+- name: Create marker file for baseDN
   ansible.builtin.file:
     path: /etc/openldap/slapd.d/basedn.set
     state: touch

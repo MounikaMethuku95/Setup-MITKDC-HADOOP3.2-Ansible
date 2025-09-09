@@ -1,0 +1,89 @@
+#
+# Kerberos schema for OpenLDAP
+# Taken from MIT Kerberos distribution
+#
+
+attributetype ( 1.2.840.113554.1.2.2.1
+  NAME 'krbPrincipalName'
+  DESC 'Kerberos principal name'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactIA5SubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.2
+  NAME 'krbPrincipalKey'
+  DESC 'Kerberos principal key'
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 )
+
+attributetype ( 1.2.840.113554.1.2.2.3
+  NAME 'krbPrincipalExpiration'
+  DESC 'Kerberos principal expiration date'
+  EQUALITY generalizedTimeMatch
+  ORDERING generalizedTimeOrderingMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.24 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.4
+  NAME 'krbTicketPolicyReference'
+  DESC 'DN of ticket policy object'
+  EQUALITY distinguishedNameMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
+
+attributetype ( 1.2.840.113554.1.2.2.5
+  NAME 'krbMaxTicketLife'
+  DESC 'Maximum ticket life'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.6
+  NAME 'krbMaxRenewableAge'
+  DESC 'Maximum renewable age'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.7
+  NAME 'krbKdcFlags'
+  DESC 'KDC flags'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.8
+  NAME 'krbTicketFlags'
+  DESC 'Ticket flags'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.9
+  NAME 'krbPwdPolicyReference'
+  DESC 'DN of password policy object'
+  EQUALITY distinguishedNameMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.12 )
+
+attributetype ( 1.2.840.113554.1.2.2.10
+  NAME 'krbPrincipalType'
+  DESC 'Kerberos principal type'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
+
+attributetype ( 1.2.840.113554.1.2.2.11
+  NAME 'krbPwdHistory'
+  DESC 'Kerberos password history'
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 )
+
+#
+# Object Classes
+#
+
+objectclass ( 1.2.840.113554.1.2.2.100
+  NAME 'krbContainer'
+  DESC 'Container for Kerberos principals'
+  SUP top STRUCTURAL
+  MUST ( cn ) )
+
+objectclass ( 1.2.840.113554.1.2.2.101
+  NAME 'krbPrincipal'
+  DESC 'Kerberos principal entry'
+  SUP top AUXILIARY
+  MUST ( krbPrincipalName )
+  MAY ( krbPrincipalKey $ krbPrincipalExpiration $ krbTicketPolicyReference $
+        krbMaxTicketLife $ krbMaxRenewableAge $ krbKdcFlags $ krbTicketFlags $
+        krbPwdPolicyReference $ krbPrincipalType $ krbPwdHistory ) )
