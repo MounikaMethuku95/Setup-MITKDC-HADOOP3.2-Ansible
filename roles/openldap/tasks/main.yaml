@@ -1,0 +1,33 @@
+- name: Install OpenLDAP
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+  - openldap-servers
+  - openldap-clients
+
+- name: Start and enable slapd
+  ansible.builtin.service:
+    name: slapd
+    state: started
+    enabled: yes
+
+# olcSuffix → tells LDAP what the “root” of your directory tree is (dc=hadoop,dc=test).
+# olcRootDN → the distinguished name (DN) of the LDAP administrator (cn=admin,dc=hadoop,dc=test).
+# olcRootPW → the password hash for that admin user.
+- name: Configure olcSuffix, olcRootDN, olcRootPW 
+  shell: |   ##LDAP Data Interchange Format
+    cat <<'LDIF' | ldapmodify -Y EXTERNAL -H ldapi:///    
+    dn: olcDatabase={2}hdb,cn=config
+    changetype: modify
+    replace: olcSuffix
+    olcSuffix: {{ basedn }}
+    -
+    replace: olcRootDN
+    olcRootDN: {{ ldap_rootdn }}
+    -
+    replace: olcRootPW
+    olcRootPW: {{ ldap_rootpw }}
+    LDIF
+  args:
+    creates: /etc/openldap/slapd.d/olcRootPW.set
