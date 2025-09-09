@@ -1,12 +1,11 @@
-# Create Kerberos subtree
-dn: {{ krb_subtree }}
-objectClass: organizationalUnit
-ou: Kerberos
+dn: cn=Kerberos,{{ basedn }}
+objectClass: top
+objectClass: krbContainer
+cn: Kerberos
 
-# Create Kerberos LDAP service account
 dn: {{ kdc_ldap_dn }}
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: krb-svc
-description: Kerberos KDC service account
+description: Kerberos service account
 userPassword: {{ kdc_ldap_pw }}

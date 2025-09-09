@@ -4,3 +4,20 @@ ldap_rootpw: "supergirl123"
 krb_subtree: "ou=Kerberos,dc=hadoop,dc=test"
 kdc_ldap_dn: "cn=krb-svc,dc=hadoop,dc=test"
 kdc_ldap_pw: "annoyingking321"
+
+---
+# OpenLDAP role defaults
+
+# Base distinguished name for Hadoop test cluster
+basedn: "dc=hadoop,dc=test"
+
+# LDAP root (administrative) account
+ldap_rootdn: "cn=admin,dc=hadoop,dc=test"
+ldap_rootpw: "supergirl123"
+
+# Kerberos subtree (must align with Kerberos role)
+krb_subtree: "cn=Kerberos,{{ basedn }}"
+
+# Kerberos service account distinguished name (inside Kerberos container)
+kdc_ldap_dn: "cn=krb-svc,cn=Kerberos,{{ basedn }}"
+kdc_ldap_pw: "annoyingking321"

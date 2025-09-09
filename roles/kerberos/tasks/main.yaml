@@ -10,32 +10,46 @@
   - openldap-clients
   - python-ldap
 
-# Ensure required LDAP objects exist before creating realm
-- name: Ensure Kerberos container exists
+# --------------------------------------------------------------------
+# Make sure Kerberos schema is available in LDAP
+# --------------------------------------------------------------------
+- name: Convert Kerberos schema to LDIF
+  ansible.builtin.command: >
+    slaptest -f /etc/openldap/schema/kerberos.schema -F /tmp/kerberos_schema
+  args:
+    creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+
+- name: Add Kerberos schema to slapd
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+  args:
+    creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
+
+# --------------------------------------------------------------------
+# Ensure Kerberos container and service account exist
+# --------------------------------------------------------------------
+- name: Render LDIF for Kerberos container and service account
+  ansible.builtin.template:
+    src: kerberos-subtree.ldif.j2
+    dest: /tmp/kerberos-subtree.ldif
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Ensure Kerberos container and service account exist in LDAP
   community.general.ldap_entry:
-    dn: "cn=krbContainer,{{ basedn }}"
+    dn: "cn=Kerberos,{{ basedn }}"
     objectClass:
       - top
       - krbContainer
     attributes:
-      cn: krbContainer
+      cn: Kerberos
+    server_uri: "ldapi:///"
+    start_tls: false
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
-    server_uri: "ldap://localhost"
 
-- name: Ensure Kerberos subtree exists in LDAP
-  community.general.ldap_entry:
-    dn: "{{ krb_subtree }}"
-    objectClass:
-      - top
-      - organizationalUnit
-    attributes:
-      ou: Kerberos
-    bind_dn: "{{ ldap_rootdn }}"
-    bind_pw: "{{ ldap_rootpw }}"
-    server_uri: "ldap://localhost"
-
-- name: Ensure Kerberos service account exists in LDAP
+- name: Ensure Kerberos service account exists
   community.general.ldap_entry:
     dn: "{{ kdc_ldap_dn }}"
     objectClass:
@@ -43,22 +57,16 @@
       - organizationalRole
     attributes:
       cn: krb-svc
-      description: Kerberos LDAP Service Account
+      description: Kerberos service account
       userPassword: "{{ kdc_ldap_pw }}"
+    server_uri: "ldapi:///"
+    start_tls: false
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
-    server_uri: "ldap://localhost"
 
-# Create the realm in LDAP backend
-- name: Create Kerberos database with LDAP backend
-  ansible.builtin.command: >
-    kdb5_ldap_util -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    create -subtrees "{{ krb_subtree }}" -r "{{ realm }}" -s
-    -P "{{ kdc_master_pw }}"
-  args:
-    creates: "/var/kerberos/krb5kdc/.k5.{{ realm }}"
-
-# Deploy configs with handlers
+# --------------------------------------------------------------------
+# Configure krb5.conf and kdc.conf
+# --------------------------------------------------------------------
 - name: Deploy krb5.conf
   ansible.builtin.template:
     src: krb5.conf.j2
@@ -66,7 +74,6 @@
     owner: root
     group: root
     mode: '0644'
-  notify: Restart Kerberos services
 
 - name: Deploy kdc.conf
   ansible.builtin.template:
@@ -74,23 +81,27 @@
     dest: /var/kerberos/krb5kdc/kdc.conf
     owner: root
     group: root
-    mode: '0644'
-  notify: Restart Kerberos services
+    mode: '0600'
 
-- name: Deploy kadm5.acl
-  ansible.builtin.template:
-    src: kadm5.acl.j2
-    dest: /var/kerberos/krb5kdc/kadm5.acl
-    owner: root
-    group: root
-    mode: '0644'
-  notify: Restart Kerberos services
+# --------------------------------------------------------------------
+# Create Kerberos database with LDAP backend
+# --------------------------------------------------------------------
+- name: Create Kerberos database with LDAP backend
+  ansible.builtin.command: >
+    kdb5_ldap_util -D {{ ldap_rootdn }} -w {{ ldap_rootpw }}
+    create -subtrees cn=Kerberos,{{ basedn }} -r {{ realm }} -s -P {{ kdc_master_pw }}
+  args:
+    creates: /var/kerberos/krb5kdc/.k5.{{ realm }}
 
-# Enable services (restart handled by handlers if needed)
-- name: Ensure KDC and admin services are enabled
+# --------------------------------------------------------------------
+# Ensure services are enabled and running
+# --------------------------------------------------------------------
+- name: Ensure KDC and admin services are enabled and running
   ansible.builtin.service:
     name: "{{ item }}"
+    state: started
     enabled: yes
   loop:
     - krb5kdc
     - kadmin
+    

@@ -1,2 +1,18 @@
+---
+# Kerberos role defaults
+
+# Kerberos realm name (UPPERCASE is standard)
 realm: HADOOP.TEST
-kdc_master_pw: "Idontknow123"
+
+# Distinguished Name (DN) subtree where Kerberos data will live
+# NOTE: This must match the Kerberos container created in LDAP
+krb_subtree: "cn=Kerberos,{{ basedn }}"
+
+# Kerberos service account DN inside the Kerberos container
+kdc_ldap_dn: "cn=krb-svc,cn=Kerberos,{{ basedn }}"
+
+# Password for the service account that Kerberos KDC will use to bind to LDAP
+kdc_ldap_pw: "ChangeMe_Kerberos_LDAP_Bind_Password"
+
+# Master password for the Kerberos database (keep this secret)
+kdc_master_pw: "ChangeMe_KDC_Master_Password"
