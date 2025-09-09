@@ -3,8 +3,8 @@
     name: "{{ item }}"
     state: present
   loop:
-  - openldap-servers
-  - openldap-clients
+    - openldap-servers
+    - openldap-clients
 
 - name: Start and enable slapd
   ansible.builtin.service:
@@ -17,7 +17,23 @@
   register: rootpw_hash
   changed_when: false
 
-- name: Render LDIF for suffix and rootDN
+#  Discover correct database DN (works for hdb/mdb)
+- name: Discover main LDAP database DN
+  ansible.builtin.command: >
+    ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=config '(olcDatabase=*)' dn
+  register: ldap_db_search
+  changed_when: false
+
+- name: Extract database DN (skip frontend/config)
+  ansible.builtin.set_fact:
+    ldap_db_dn: >-
+      {{ (ldap_db_search.stdout_lines
+          | select('match', '^dn: olcDatabase={[0-9]+}(hdb|mdb),cn=config')
+          | list
+          | first
+          | regex_replace('^dn: ', '')) }}
+
+- name: Give LDIF for suffix and rootDN
   ansible.builtin.template:
     src: configure-rootdn.ldif.j2
     dest: /tmp/configure-rootdn.ldif
