@@ -1,0 +1,21 @@
+# 1. BaseDN entry
+dn: dc=hadoop,dc=test
+objectClass: top
+objectClass: dcObject
+objectClass: organization
+o: Hadoop Test Cluster
+dc: hadoop
+
+# 2. Kerberos subtree
+dn: ou=Kerberos,dc=hadoop,dc=test
+objectClass: top
+objectClass: organizationalUnit
+ou: Kerberos
+
+# 3. Kerberos service account
+dn: cn=krb-svc,dc=hadoop,dc=test
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: krb-svc
+description: Kerberos LDAP service account
+userPassword: annoyingking321
