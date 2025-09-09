@@ -71,3 +71,22 @@
   ansible.builtin.file:
     path: /etc/openldap/slapd.d/basedn.set
     state: touch
+
+# Load Kerberos schema so krbContainer objectClass is available
+- name: Ensure temporary directory for schema conversion exists
+  ansible.builtin.file:
+    path: /tmp/kerberos_schema
+    state: directory
+    mode: '0755'
+
+- name: Convert Kerberos schema to LDIF
+  ansible.builtin.command: >
+    slaptest -f /etc/openldap/schema/kerberos.schema -F /tmp/kerberos_schema
+  args:
+    creates: /tmp/kerberos_schema/cn=config/cn=schema
+
+- name: Add Kerberos schema to LDAP
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+  args:
+    creates: /etc/openldap/slapd.d/cn=config/cn=schema/cn={0}kerberos.ldif
