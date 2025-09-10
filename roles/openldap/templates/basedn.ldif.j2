@@ -5,9 +5,10 @@ objectClass: organization
 o: Hadoop Test Organization
 dc: {{ basedn.split(',')[0].split('=')[1] }}
 
+# optional: create the Manager entry under the baseDN
 dn: {{ ldap_rootdn }}
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
-cn: Manager
+cn: {{ ldap_rootdn.split(',')[0].split('=')[1] | default('Manager') }}
 description: Directory Manager
 userPassword: {{ ldap_rootpw }}

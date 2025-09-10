@@ -1,0 +1,6 @@
+dn: {{ kdc_ldap_dn }}
+objectClass: simpleSecurityObject
+objectClass: organizationalRole
+cn: {{ kdc_ldap_dn.split(',')[0].split('=')[1] | default('krb-svc') }}
+description: Kerberos LDAP Bind Account
+userPassword: {{ kdc_ldap_pw }}
