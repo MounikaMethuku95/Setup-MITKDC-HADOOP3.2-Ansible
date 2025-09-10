@@ -2,9 +2,13 @@ dn: {{ ldap_db_dn }}
 changetype: modify
 replace: olcSuffix
 olcSuffix: {{ basedn }}
--
+
+dn: {{ ldap_db_dn }}
+changetype: modify
 replace: olcRootDN
 olcRootDN: {{ ldap_rootdn }}
--
+
+dn: {{ ldap_db_dn }}
+changetype: modify
 replace: olcRootPW
-olcRootPW: {{ rootpw_hash.stdout }}
+olcRootPW: {{ ldap_hashed_pw }}
