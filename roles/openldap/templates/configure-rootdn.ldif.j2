@@ -1,7 +1,7 @@
-dn: olcDatabase={2}hdb,cn=config
+dn: olcDatabase={2}mdb,cn=config
 changetype: modify
 replace: olcSuffix
-olcSuffix: {{ basedn }}
+olcSuffix: {{ ldap_suffix }}
 -
 replace: olcRootDN
 olcRootDN: {{ ldap_rootdn }}

@@ -1,8 +1,8 @@
-- name: Deploy openldap,MITKDC,Hadoop and ssh
-  hosts: all
+- name: Deploy OpenLDAP, MITKDC, Hadoop and SSH
+  hosts: localhost
   become: yes
   roles:
     - role: openldap
     - role: kerberos
-    - role: ssh        # must come before Hadoop (creates users, home dirs, SSSD, SSH integration)
-    - role: hadoop     # depends on hadoop user + SSH working
+    - role: ssh        # must run before Hadoop
+    - role: hadoop
