@@ -1,6 +1,9 @@
 # ========= OpenLDAP Configuration =========
 basedn: "dc=hadoop,dc=test"
 
+# For compatibility with templates
+ldap_suffix: "{{ basedn }}"
+
 # Root DN for database {2}mdb
 ldap_db_dn: "olcDatabase={2}mdb,cn=config"
 
