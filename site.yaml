@@ -1,9 +1,6 @@
 - name: Deploy openldap,MITKDC,Hadoop and ssh
   hosts: all
   become: yes
-  vars_files:
-    - roles/openldap/defaults/main.yml
-    - roles/kerberos/defaults/main.yml
   roles:
   - openldap
   - kerberos
