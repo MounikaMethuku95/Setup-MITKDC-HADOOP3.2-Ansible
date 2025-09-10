@@ -67,7 +67,7 @@
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
-    validate_cert: no
+    validate_certs: false
   register: kerberos_service_account
   failed_when: kerberos_service_account is failed
 
