@@ -1,5 +1,5 @@
-- name: Deploy openldap,MITKDC,Hadoop and ssh
-  hosts: all
-  become: yes
-  roles:
-  - ssh
+# - name: Deploy openldap,MITKDC,Hadoop and ssh
+#   hosts: all
+#   become: yes
+#   roles:
+#   - ssh
