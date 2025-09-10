@@ -75,7 +75,7 @@
 - name: Check for Kerberos DB marker file
   ansible.builtin.stat:
     path: "{{ kerberos_db_marker }}"
-  register: db_marker
+  register: kerberos_db_marker_check
 
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.expect:
