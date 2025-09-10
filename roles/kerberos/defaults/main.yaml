@@ -29,3 +29,6 @@ kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
 
 # Marker to avoid re-creating Kerberos DB
 kerberos_db_marker: "/etc/krb5kdc/kerberos_db_created"
+
+# Service keyfile for KDC <-> LDAP binding
+kerberos_service_keyfile: "/var/kerberos/krb5kdc/service.keyfile"

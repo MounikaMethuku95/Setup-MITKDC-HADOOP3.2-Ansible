@@ -38,8 +38,8 @@
         ldap_kadmind_dn = cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test
 
         # Service keyfile (populated by Ansible from kdc_ldap_dn / kdc_ldap_pw)
-        ldap_service_password_file = /etc/krb5kdc/service.keyfile
-
+        ldap_service_password_file = /var/kerberos/krb5kdc/service.keyfile
+    
         # Allow multiple LDAP connections
         ldap_conns_per_server = 5
     }

@@ -62,6 +62,15 @@
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
 
+# ========= Ensure Kerberos keyfile directory exists =========
+- name: Ensure Kerberos keyfile directory exists
+  ansible.builtin.file:
+    path: /var/kerberos/krb5kdc
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
 # ========= Create ldap-service.keyfile for KDC/LDAP binding =========
 - name: Create ldap-service.keyfile
   copy:
@@ -72,7 +81,6 @@
     owner: root
     group: root
     mode: '0600'
-
 
 
 - name: Verify ldap service keyfile exists
