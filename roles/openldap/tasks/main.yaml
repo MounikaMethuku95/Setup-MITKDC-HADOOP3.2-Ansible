@@ -17,14 +17,14 @@
 # ========= RootDN setup =========
 # ========= Generate hashed LDAP root password =========
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: 
+  ansible.builtin.command:
     cmd: "slappasswd -s {{ ldap_rootpw }}"
-  register: ldap_rootpw_pw
+  register: ldap_rootpw_result
   changed_when: false
 
 - name: Set fact for ldap_hashed_pw
   ansible.builtin.set_fact:
-    ldap_hashed_pw: "{{ ldap_rootpw_hash.stdout }}"
+    ldap_hashed_pw: "{{ ldap_rootpw_result.stdout }}"
 
 
 - name: Render LDIF for suffix and rootDN
