@@ -1,32 +1,32 @@
 # ========= Kerberos Configuration =========
+
+# Kerberos realm
 realm: "HADOOP.TEST"
 
 # Master password for Kerberos database
 kdc_master_pw: "Idontknow123"
 
 # ========= LDAP Integration =========
-# Where Kerberos entries will live inside LDAP
-kerberos_container_dn: "ou=Kerberos,dc=hadoop,dc=test"
 
-# Marker file for Kerberos container
-kerberos_container_marker: "/etc/krb5kdc/kerberos_container_created"
+# Base DN (must match OpenLDAP role)
+basedn: "dc=hadoop,dc=test"
 
-# Service account used by KDC to bind to LDAP
-kdc_ldap_dn: "cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test"
-kdc_ldap_pw: "svcpassword123"
-
-# Root DN and password of LDAP (must match OpenLDAP role)
-ldap_rootdn: "cn=Manager,dc=hadoop,dc=test"
+# RootDN credentials (plain password here; hash is only for OpenLDAP config)
+ldap_rootdn: "cn=Manager,{{ basedn }}"
 ldap_rootpw: "supergirl123"
 
-# ========= Kerberos DB marker =========
+# Kerberos container location in LDAP
+kerberos_container_dn: "ou=Kerberos,{{ basedn }}"
+
+# Service account DN and password for KDC <-> LDAP binding
+kdc_ldap_dn: "cn=krb-svc,{{ kerberos_container_dn }}"
+kdc_ldap_pw: "krbldap123"
+
+# ========= Idempotency markers =========
+
+# Marker to avoid re-adding Kerberos container
+kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
+
+# Marker to avoid re-creating Kerberos DB
 kerberos_db_marker: "/etc/krb5kdc/kerberos_db_created"
 
-# ========= Package list =========
-kerberos_packages:
-  - krb5-server
-  - krb5-server-ldap
-  - krb5-libs
-  - krb5-workstation
-  - openldap-clients
-  - python3-ldap
