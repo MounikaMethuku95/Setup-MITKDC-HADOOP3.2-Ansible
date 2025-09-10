@@ -12,6 +12,7 @@
     - krb5-workstation
     - openldap-clients
     - python-ldap
+    - pexpect
 
 # ========= Ensure kerberos templates directory exists (tmp) =========
 - name: Ensure kerberos templates directory exists (tmp)
