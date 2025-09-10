@@ -1,0 +1,9 @@
+# ========= SSSD Configuration Defaults =========
+ldap_uri: "ldap://localhost"
+ldap_search_base: "dc=hadoop,dc=test"
+ldap_default_bind_dn: "cn=Manager,dc=hadoop,dc=test"
+ldap_default_bind_pw: "supergirl123"
+ldap_id_provider: ldap
+ldap_auth_provider: ldap
+ldap_chpass_provider: ldap
+ldap_access_provider: ldap

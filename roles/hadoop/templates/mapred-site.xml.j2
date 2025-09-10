@@ -1,0 +1,23 @@
+<configuration>
+  <!-- Run MapReduce on YARN -->
+  <property>
+    <name>mapreduce.framework.name</name>
+    <value>yarn</value>
+  </property>
+
+  <!-- Enable Kerberos for MapReduce -->
+  <property>
+    <name>mapreduce.jobhistory.principal</name>
+    <value>jhs/_HOST@{{ realm }}</value>
+  </property>
+
+  <property>
+    <name>mapreduce.jobhistory.address</name>
+    <value>localhost:10020</value>
+  </property>
+
+  <property>
+    <name>mapreduce.jobhistory.webapp.address</name>
+    <value>localhost:19888</value>
+  </property>
+</configuration>

@@ -1,0 +1,90 @@
+# ========= Install SSSD and SSH packages =========
+- name: Install SSSD and SSH packages
+  ansible.builtin.package:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - sssd
+    - oddjob
+    - oddjob-mkhomedir
+    - adcli
+    - samba-common-tools
+    - openssh-clients
+    - openssh-server
+
+# ========= Configure SSSD =========
+- name: Render sssd.conf
+  ansible.builtin.template:
+    src: sssd.conf.j2
+    dest: /etc/sssd/sssd.conf
+    owner: root
+    group: root
+    mode: '0600'
+  notify: restart sssd
+
+# ========= Enable home dir auto-creation =========
+- name: Enable mkhomedir for PAM
+  ansible.builtin.command: authconfig --enablemkhomedir --update
+  args:
+    creates: /etc/security/pam_env.conf  # ensures idempotency
+
+# ========= Hadoop user setup =========
+- name: Ensure hadoop group exists
+  ansible.builtin.group:
+    name: hadoop
+    state: present
+
+- name: Ensure hadoop user exists
+  ansible.builtin.user:
+    name: hadoop
+    group: hadoop
+    create_home: yes
+    shell: /bin/bash
+
+# ========= Hadoop SSH key setup =========
+- name: Ensure .ssh directory exists
+  ansible.builtin.file:
+    path: /home/hadoop/.ssh
+    state: directory
+    owner: hadoop
+    group: hadoop
+    mode: '0700'
+
+- name: Generate SSH key for hadoop user if not exists
+  ansible.builtin.openssh_keypair:
+    path: /home/hadoop/.ssh/id_rsa
+    type: rsa
+    size: 2048
+    owner: hadoop
+    group: hadoop
+    mode: '0600'
+  become: true
+  become_user: hadoop
+  when: not lookup('file', '/home/hadoop/.ssh/id_rsa', errors='ignore')
+
+- name: Authorize hadoop SSH key
+  ansible.builtin.copy:
+    src: /home/hadoop/.ssh/id_rsa.pub
+    dest: /home/hadoop/.ssh/authorized_keys
+    remote_src: true
+    owner: hadoop
+    group: hadoop
+    mode: '0600'
+
+# ========= Ensure SSHD allows key auth =========
+- name: Ensure sshd_config permits key-based auth
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication yes'
+    state: present
+
+# ========= Enable and start services =========
+- name: Ensure SSSD and SSHD services are enabled and running
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - sssd
+    - sshd

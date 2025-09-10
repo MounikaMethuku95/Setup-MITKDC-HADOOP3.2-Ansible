@@ -2,8 +2,4 @@
   hosts: all
   become: yes
   roles:
-  - openldap
   - kerberos
-  - ssh
-  - hadoop
-

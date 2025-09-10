@@ -1,0 +1,127 @@
+# ========= Install Java (required by Hadoop) =========
+- name: Install Java
+  ansible.builtin.package:
+    name: java-1.8.0-openjdk
+    state: present
+
+# ========= Download Hadoop tarball =========
+- name: Check if Hadoop marker exists
+  ansible.builtin.stat:
+    path: "{{ hadoop_marker_file }}"
+  register: hadoop_marker
+
+- name: Download Hadoop {{ hadoop_version }}
+  ansible.builtin.get_url:
+    url: "{{ hadoop_download_url }}"
+    dest: /tmp/hadoop-{{ hadoop_version }}.tar.gz
+    mode: '0644'
+  when: not hadoop_marker.stat.exists
+
+# ========= Extract Hadoop =========
+- name: Extract Hadoop
+  ansible.builtin.unarchive:
+    src: /tmp/hadoop-{{ hadoop_version }}.tar.gz
+    dest: "{{ hadoop_install_dir }}"
+    remote_src: yes
+    creates: "{{ hadoop_install_dir }}/hadoop-{{ hadoop_version }}"
+
+# ========= Symlink Hadoop =========
+- name: Symlink hadoop current version
+  ansible.builtin.file:
+    src: "{{ hadoop_install_dir }}/hadoop-{{ hadoop_version }}"
+    dest: "{{ hadoop_install_dir }}/hadoop"
+    state: link
+
+# ========= Configure Hadoop env =========
+- name: Render hadoop-env.sh
+  ansible.builtin.template:
+    src: hadoop-env.sh.j2
+    dest: "{{ hadoop_install_dir }}/hadoop/etc/hadoop/hadoop-env.sh"
+  notify: restart hadoop
+
+# ========= Configure core-site.xml =========
+- name: Render core-site.xml
+  ansible.builtin.template:
+    src: core-site.xml.j2
+    dest: "{{ hadoop_install_dir }}/hadoop/etc/hadoop/core-site.xml"
+  notify: restart hadoop
+
+# ========= Configure hdfs-site.xml =========
+- name: Render hdfs-site.xml
+  ansible.builtin.template:
+    src: hdfs-site.xml.j2
+    dest: "{{ hadoop_install_dir }}/hadoop/etc/hadoop/hdfs-site.xml"
+  notify: restart hadoop
+
+# ========= Configure yarn-site.xml =========
+- name: Render yarn-site.xml
+  ansible.builtin.template:
+    src: yarn-site.xml.j2
+    dest: "{{ hadoop_install_dir }}/hadoop/etc/hadoop/yarn-site.xml"
+  notify: restart hadoop
+
+# ========= Configure mapred-site.xml =========
+- name: Render mapred-site.xml
+  ansible.builtin.template:
+    src: mapred-site.xml.j2
+    dest: "{{ hadoop_install_dir }}/hadoop/etc/hadoop/mapred-site.xml"
+  notify: restart hadoop
+
+# ========= Format HDFS NameNode (only first time) =========
+- name: Check if NameNode is already formatted
+  ansible.builtin.stat:
+    path: "{{ hadoop_install_dir }}/hadoop/dfs/name/current/VERSION"
+  register: namenode_formatted
+
+- name: Format HDFS NameNode
+  ansible.builtin.command: "{{ hadoop_install_dir }}/hadoop/bin/hdfs namenode -format -force -nonInteractive"
+  when: not namenode_formatted.stat.exists
+  become_user: hadoop
+  notify: restart hadoop
+
+# ========= Deploy systemd unit files =========
+- name: Deploy systemd unit for NameNode
+  ansible.builtin.template:
+    src: hadoop-namenode.service.j2
+    dest: /etc/systemd/system/hadoop-namenode.service
+  notify: restart hadoop
+
+- name: Deploy systemd unit for DataNode
+  ansible.builtin.template:
+    src: hadoop-datanode.service.j2
+    dest: /etc/systemd/system/hadoop-datanode.service
+  notify: restart hadoop
+
+- name: Deploy systemd unit for ResourceManager
+  ansible.builtin.template:
+    src: hadoop-resourcemanager.service.j2
+    dest: /etc/systemd/system/hadoop-resourcemanager.service
+  notify: restart hadoop
+
+- name: Deploy systemd unit for NodeManager
+  ansible.builtin.template:
+    src: hadoop-nodemanager.service.j2
+    dest: /etc/systemd/system/hadoop-nodemanager.service
+  notify: restart hadoop
+
+# ========= Reload and enable services =========
+- name: Reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and start Hadoop services
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  loop:
+    - hadoop-namenode
+    - hadoop-datanode
+    - hadoop-resourcemanager
+    - hadoop-nodemanager
+
+# ========= Create marker =========
+- name: Create marker file for Hadoop installation
+  ansible.builtin.file:
+    path: "{{ hadoop_marker_file }}"
+    state: touch

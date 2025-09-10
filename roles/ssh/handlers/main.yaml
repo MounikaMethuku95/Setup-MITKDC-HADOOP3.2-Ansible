@@ -1,0 +1,11 @@
+# Handlers for SSH role
+
+- name: restart sssd
+  ansible.builtin.service:
+    name: sssd
+    state: restarted
+
+- name: restart sshd
+  ansible.builtin.service:
+    name: sshd
+    state: restarted

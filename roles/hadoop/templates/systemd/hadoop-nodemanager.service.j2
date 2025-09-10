@@ -1,0 +1,13 @@
+[Unit]
+Description=Hadoop YARN NodeManager
+After=network.target
+
+[Service]
+User=hadoop
+Group=hadoop
+ExecStart={{ hadoop_install_dir }}/hadoop/bin/yarn nodemanager
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

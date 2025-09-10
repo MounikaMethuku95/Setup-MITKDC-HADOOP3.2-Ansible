@@ -1,0 +1,19 @@
+[sssd]
+services = nss, pam
+config_file_version = 2
+domains = default
+
+[domain/default]
+id_provider = {{ ldap_id_provider }}
+auth_provider = {{ ldap_auth_provider }}
+chpass_provider = {{ ldap_chpass_provider }}
+access_provider = {{ ldap_access_provider }}
+
+ldap_uri = {{ ldap_uri }}
+ldap_search_base = {{ ldap_search_base }}
+ldap_default_bind_dn = {{ ldap_default_bind_dn }}
+ldap_default_authtok = {{ ldap_default_bind_pw }}
+ldap_tls_reqcert = never
+
+[nss]
+homedir_substring = /home

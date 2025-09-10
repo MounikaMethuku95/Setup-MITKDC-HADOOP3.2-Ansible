@@ -1,0 +1,30 @@
+<configuration>
+  <!-- Replication factor (single node cluster = 1) -->
+  <property>
+    <name>dfs.replication</name>
+    <value>1</value>
+  </property>
+
+  <!-- NameNode directory -->
+  <property>
+    <name>dfs.namenode.name.dir</name>
+    <value>file:/var/lib/hadoop/hdfs/namenode</value>
+  </property>
+
+  <!-- DataNode directory -->
+  <property>
+    <name>dfs.datanode.data.dir</name>
+    <value>file:/var/lib/hadoop/hdfs/datanode</value>
+  </property>
+
+  <!-- Enable Kerberos authentication -->
+  <property>
+    <name>dfs.namenode.kerberos.principal</name>
+    <value>nn/_HOST@{{ realm }}</value>
+  </property>
+
+  <property>
+    <name>dfs.datanode.kerberos.principal</name>
+    <value>dn/_HOST@{{ realm }}</value>
+  </property>
+</configuration>

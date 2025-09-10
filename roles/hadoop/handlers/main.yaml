@@ -1,0 +1,14 @@
+---
+# Handlers for Hadoop services
+
+- name: restart hadoop
+  ansible.builtin.service:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  loop:
+    - hadoop-namenode
+    - hadoop-datanode
+    - hadoop-resourcemanager
+    - hadoop-nodemanager
+    - hadoop-historyserver
