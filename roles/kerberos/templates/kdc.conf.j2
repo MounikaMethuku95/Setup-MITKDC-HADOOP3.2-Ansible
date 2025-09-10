@@ -38,7 +38,7 @@
         ldap_kadmind_dn = {{ kdc_ldap_dn }}
 
         # Service keyfile (pointing to /var/kerberos/krb5kdc/service.keyfile)
-        ldap_service_password_file = {{ kerberos_service_keyfile }}
+        ldap_service_password_file = /var/kerberos/krb5kdc/service.keyfile
 
         # Allow multiple LDAP connections
         ldap_conns_per_server = 5
