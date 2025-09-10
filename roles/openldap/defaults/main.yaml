@@ -1,19 +1,30 @@
-# OpenLDAP role defaults
-
-# Base distinguished name for Hadoop test cluster
+# ========= OpenLDAP Configuration =========
 basedn: "dc=hadoop,dc=test"
 
-# LDAP root (administrative) account
-ldap_rootdn: "cn=admin,dc=hadoop,dc=test"
+# Root DN for database {2}mdb
+ldap_db_dn: "olcDatabase={2}mdb,cn=config"
+
+# Administrative DN and password
+ldap_rootdn: "cn=Manager,{{ basedn }}"
 ldap_rootpw: "supergirl123"
 
-# Kerberos subtree (must align with Kerberos role)
-krb_subtree: "cn=Kerberos,{{ basedn }}"
+# ========= Kerberos Integration =========
+# Kerberos realm
+realm: "HADOOP.TEST"
 
-# Kerberos service account distinguished name (inside Kerberos container)
-kdc_ldap_dn: "cn=krb-svc,cn=Kerberos,{{ basedn }}"
-kdc_ldap_pw: "annoyingking321"
+# Master password for Kerberos database
+kdc_master_pw: "Idontknow123"
 
-# Default DB type (can be hdb or mdb depending on OS)
-ldap_db_type: "{2}hdb"
+# LDAP subtree for Kerberos entries
+kerberos_container_dn: "ou=Kerberos,{{ basedn }}"
+
+# ========= Paths for schema conversion =========
+kerberos_schema_file: "/etc/openldap/schema/kerberos.schema"
+kerberos_convert_conf: "/tmp/kerberos_convert.conf"
+kerberos_schema_tmpdir: "/tmp/kerberos_schema"
+
+# ========= Idempotency markers =========
+rootdn_marker: "/etc/openldap/rootdn_configured"
+basedn_marker: "/etc/openldap/basedn_configured"
+
 

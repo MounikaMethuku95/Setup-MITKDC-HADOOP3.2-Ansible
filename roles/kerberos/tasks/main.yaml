@@ -10,78 +10,60 @@
   - openldap-clients
   - python-ldap
 
-- name: Render krb5.conf
-  ansible.builtin.template:
-    src: krb5.conf.j2
-    dest: /etc/krb5.conf
-    owner: root
-    group: root
-    mode: '0644'
+# ========= Ensure Kerberos container exists in LDAP =========
+- name: Ensure Kerberos container exists
+  community.general.ldap_entry:
+    dn: "{{ kerberos_container_dn }}"
+    objectClass:
+      - top
+      - organizationalUnit
+    attributes:
+      ou: Kerberos
+  register: kerberos_container
+  failed_when: kerberos_container is failed
+  notify: restart kerberos
+  args:
+    bind_dn: "{{ ldap_rootdn }}"
+    bind_pw: "{{ ldap_rootpw }}"
+    server_uri: "ldap://localhost"
 
-- name: Render kdc.conf
-  ansible.builtin.template:
-    src: kdc.conf.j2
-    dest: /var/kerberos/krb5kdc/kdc.conf
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Render kadm5.acl
-  ansible.builtin.template:
-    src: kadm5.acl.j2
-    dest: /var/kerberos/krb5kdc/kadm5.acl
-    owner: root
-    group: root
-    mode: '0644'
-
-# ---------------- LDAP Subtree ---------------- #
-
-- name: Render LDIF for Kerberos subtree and service account
-  ansible.builtin.template:
-    src: kerberos-subtree.ldif.j2
-    dest: /tmp/kerberos-subtree.ldif
-    owner: root
-    group: root
-    mode: '0600'
-
-- name: Check if Kerberos subtree already exists
-  ansible.builtin.command: >
-    ldapsearch -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    -b "{{ krb_subtree }}" "(objectClass=organizationalUnit)"
-  register: kerberos_subtree_check
-  failed_when: false
-  changed_when: false
-
-- name: Ensure Kerberos subtree and service account exist
-  ansible.builtin.command: >
-    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    -f /tmp/kerberos-subtree.ldif
-  when: kerberos_subtree_check.rc != 0
-  register: kerberos_subtree_add
-  changed_when: kerberos_subtree_add.rc == 0
-
-- name: Create marker file for Kerberos subtree
+- name: Create marker for Kerberos container
   ansible.builtin.file:
-    path: /etc/krb5kdc/kerberos-subtree.set
+    path: "{{ kerberos_container_marker }}"
     state: touch
+  when: kerberos_container.changed
 
-# ---------------- KDC Database ---------------- #
+# ========= Create Kerberos service account =========
+- name: Ensure Kerberos service account exists
+  community.general.ldap_entry:
+    dn: "{{ kdc_ldap_dn }}"
+    objectClass:
+      - simpleSecurityObject
+      - organizationalRole
+    attributes:
+      cn: krb-svc
+      userPassword: "{{ kdc_ldap_pw }}"
+      description: "Kerberos LDAP Bind Account"
+  args:
+    bind_dn: "{{ ldap_rootdn }}"
+    bind_pw: "{{ ldap_rootpw }}"
+    server_uri: "ldap://localhost"
 
-- name: Check if Kerberos DB already exists
-  ansible.builtin.stat:
-    path: /var/kerberos/krb5kdc/principal
-  register: kdc_db_file
-
+# ========= Create Kerberos database =========
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
     kdb5_ldap_util -D {{ ldap_rootdn }} -w {{ ldap_rootpw }}
-    create -subtrees {{ krb_subtree }} -r {{ realm }} -s -P {{ kdc_master_pw }}
-  when: not kdc_db_file.stat.exists
-  register: kdb_create
-  changed_when: kdb_create.rc == 0
+    create -subtrees {{ kerberos_container_dn }}
+    -r {{ realm }} -s -P {{ kdc_master_pw }}
+  args:
+    creates: "{{ kerberos_db_marker }}"
 
-# ---------------- Services ---------------- #
+- name: Create marker for Kerberos DB
+  ansible.builtin.file:
+    path: "{{ kerberos_db_marker }}"
+    state: touch
 
+# ========= Enable and start Kerberos services =========
 - name: Ensure KDC and admin services are enabled and running
   ansible.builtin.service:
     name: "{{ item }}"

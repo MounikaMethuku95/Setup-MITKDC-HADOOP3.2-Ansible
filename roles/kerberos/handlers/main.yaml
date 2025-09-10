@@ -1,14 +1,6 @@
-# - name: Restart krb5kdc
-#   ansible.builtin.service:
-#     name: krb5kdc
-#     state: restarted
+# ========= Kerberos Role Handlers =========
 
-# - name: Restart kadmin
-#   ansible.builtin.service:
-#     name: kadmin
-#     state: restarted
-
-- name: Restart Kerberos services
+- name: restart kerberos
   ansible.builtin.service:
     name: "{{ item }}"
     state: restarted

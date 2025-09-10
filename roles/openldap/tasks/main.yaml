@@ -1,5 +1,5 @@
 - name: Install OpenLDAP
-  ansible.builtin.package:
+  ansible.builtin.yum:
     name: "{{ item }}"
     state: present
   loop:
@@ -7,53 +7,57 @@
     - openldap-clients
 
 - name: Start and enable slapd
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: slapd
     state: started
-    enabled: yes
+    enabled: true
 
+# -------------------------------
+# RootDN and baseDN setup
+# -------------------------------
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: slappasswd -s "{{ ldap_rootpw }}"
+  ansible.builtin.command: "slappasswd -s {{ ldap_rootpw }}"
   register: rootpw_hash
-  changed_when: rootpw_hash.rc == 0
+  changed_when: false
 
-# 1. Configure suffix + rootDN in olcDatabase={2}mdb
-- name: Render LDIF for suffix and rootDN
-  ansible.builtin.template:
-    src: configure-rootdn.ldif.j2
-    dest: /tmp/configure-rootdn.ldif
-
-- name: Apply LDAP rootDN and suffix config
-  ansible.builtin.command:
-    cmd: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
-  args:
-    creates: /var/lib/ldap/rootdn_configured
-
-- name: Create marker file to avoid reapplying rootDN config
-  ansible.builtin.file:
-    path: /var/lib/ldap/rootdn_configured
-    state: touch
-
-# 2. Create the baseDN entry (must exist for suffix to work)
 - name: Render LDIF for baseDN entry
   ansible.builtin.template:
     src: basedn.ldif.j2
     dest: /tmp/basedn.ldif
 
 - name: Add baseDN entry to LDAP
-  ansible.builtin.command:
-    cmd: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -f /tmp/basedn.ldif
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/basedn.ldif
   args:
-    creates: /var/lib/ldap/basedn_configured
+    creates: /var/lib/ldap/.basedn_configured
 
 - name: Create marker file for baseDN
   ansible.builtin.file:
-    path: /var/lib/ldap/basedn_configured
+    path: /var/lib/ldap/.basedn_configured
     state: touch
 
-# 3. Handle Kerberos schema
+- name: Render LDIF for suffix and rootDN
+  ansible.builtin.template:
+    src: configure-rootdn.ldif.j2
+    dest: /tmp/configure-rootdn.ldif
+
+- name: Apply LDAP rootDN and suffix config
+  ansible.builtin.command: >
+    ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  args:
+    creates: /var/lib/ldap/.rootdn_configured
+
+- name: Create marker file to avoid reapplying rootDN config
+  ansible.builtin.file:
+    path: /var/lib/ldap/.rootdn_configured
+    state: touch
+
+# -------------------------------
+# Kerberos schema integration
+# -------------------------------
 - name: Check if kerberos schema already added
-  ansible.builtin.command: ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=config cn=kerberos
+  ansible.builtin.command: >
+    ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" cn=kerberos
   register: kerberos_schema_check
   failed_when: false
   changed_when: false
@@ -63,10 +67,11 @@
     path: /tmp/kerberos_schema
     state: absent
 
-- name: Create temporary kerberos schema directory
+- name: Recreate kerberos schema directory
   ansible.builtin.file:
     path: /tmp/kerberos_schema
     state: directory
+    mode: '0755'
 
 - name: Create minimal slapd.conf for kerberos schema
   ansible.builtin.template:
@@ -74,11 +79,14 @@
     dest: /tmp/kerberos_convert.conf
 
 - name: Convert kerberos.schema to LDIF
-  ansible.builtin.command: slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
-  when: kerberos_schema_check.rc != 0
+  ansible.builtin.command: >
+    slaptest -f /tmp/kerberos_convert.conf -F /tmp/kerberos_schema
+  args:
+    creates: /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
 
 - name: Add Kerberos schema to slapd
-  ansible.builtin.command: ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/kerberos_schema/cn=config/cn=schema/cn={0}kerberos.ldif
   when: kerberos_schema_check.rc != 0
 
 - name: Cleanup temporary kerberos schema files

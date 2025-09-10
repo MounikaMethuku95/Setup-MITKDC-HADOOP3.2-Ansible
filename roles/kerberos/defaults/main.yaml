@@ -1,18 +1,20 @@
----
-# Kerberos realm (MUST be uppercase)
-realm: HADOOP.TEST
+# ========= Kerberos Configuration =========
 
-# Master password for KDC database initialization
-kdc_master_pw: "Idontknow123"
+# Realm (comes from openldap defaults, override if needed)
+realm: "{{ realm | default('HADOOP.TEST') }}"
 
-# LDAP integration details (must match openldap role)
-basedn: "dc=hadoop,dc=test"
-ldap_rootdn: "cn=admin,dc=hadoop,dc=test"
-ldap_rootpw: "supergirl123"
+# Master password for Kerberos database
+kdc_master_pw: "{{ kdc_master_pw | default('Idontknow123') }}"
 
-# Kerberos subtree in LDAP
-krb_subtree: "ou=Kerberos,{{ basedn }}"
+# Kerberos container DN (stored under LDAP basedn)
+kerberos_container_dn: "{{ kerberos_container_dn | default('ou=Kerberos,dc=hadoop,dc=test') }}"
 
-# Service account used by KDC to bind to LDAP
+# LDAP bind DN for Kerberos service account
 kdc_ldap_dn: "cn=krb-svc,{{ basedn }}"
-kdc_ldap_pw: "annoyingking321"
+
+# Password for Kerberos service account
+kdc_ldap_pw: "ChangeMe_Kerberos_LDAP_Bind_Password"
+
+# ========= Idempotency markers =========
+kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
+kerberos_db_marker: "/etc/krb5kdc/kdc_db_created"
