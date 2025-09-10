@@ -1,6 +1,4 @@
----
-# ========= Install and configure OpenLDAP =========
-
+# ========= Install OpenLDAP =========
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -15,21 +13,26 @@
     state: started
     enabled: yes
 
-# ========= RootDN and Suffix configuration =========
-
+# ========= Generate hashed LDAP root password =========
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: "slappasswd -s {{ ldap_rootpw }}"
-  register: rootpw_hash
+  ansible.builtin.command: >
+    slappasswd -s {{ ldap_rootpw }}
+  register: hashed_pw
   changed_when: false
 
+- name: Set fact for ldap_hashed_pw
+  ansible.builtin.set_fact:
+    ldap_hashed_pw: "{{ hashed_pw.stdout }}"
+
+# ========= Configure rootDN and suffix =========
 - name: Render LDIF for suffix and rootDN
   ansible.builtin.template:
     src: configure-rootdn.ldif.j2
     dest: /tmp/configure-rootdn.ldif
 
 - name: Apply LDAP rootDN and suffix config
-  ansible.builtin.command:
-    cmd: "ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif"
+  ansible.builtin.command: >
+    ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
   args:
     creates: "{{ rootdn_marker }}"
 
@@ -38,8 +41,7 @@
     path: "{{ rootdn_marker }}"
     state: touch
 
-# ========= BaseDN =========
-
+# ========= Configure baseDN =========
 - name: Render LDIF for baseDN entry
   ansible.builtin.template:
     src: basedn.ldif.j2
@@ -47,16 +49,16 @@
 
 - name: Check if baseDN already exists
   ansible.builtin.command: >
-    ldapsearch -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    -b "{{ basedn }}" "(objectclass=*)"
+    ldapsearch -LLL -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -b "{{ basedn }}" dn
   register: basedn_check
   failed_when: false
   changed_when: false
 
 - name: Add baseDN entry to LDAP
-  ansible.builtin.command:
-    cmd: "ldapadd -x -D {{ ldap_rootdn }} -w {{ ldap_rootpw }} -f /tmp/basedn.ldif"
-  when: "'No such object' in basedn_check.stderr"
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/basedn.ldif
+  when: basedn_check.rc != 0
   args:
     creates: "{{ basedn_marker }}"
 
@@ -64,13 +66,12 @@
   ansible.builtin.file:
     path: "{{ basedn_marker }}"
     state: touch
-  when: "'No such object' in basedn_check.stderr"
+  when: basedn_check.rc != 0
 
-# ========= Kerberos schema =========
-
+# ========= Kerberos Schema =========
 - name: Check if kerberos schema already added
   ansible.builtin.command: >
-    ldapsearch -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" "cn=kerberos"
+    ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" cn=kerberos
   register: kerberos_schema_check
   failed_when: false
   changed_when: false
@@ -84,27 +85,31 @@
   ansible.builtin.file:
     path: "{{ kerberos_schema_tmpdir }}"
     state: directory
-    mode: '0755'
 
 - name: Create minimal slapd.conf for kerberos schema
-  ansible.builtin.template:
-    src: kerberos_convert.conf.j2
+  ansible.builtin.copy:
     dest: "{{ kerberos_convert_conf }}"
+    content: |
+      include {{ kerberos_schema_file }}
+      pidfile /tmp/slapd.pid
+      argsfile /tmp/slapd.args
+      database config
+      rootdn "cn=admin,cn=config"
 
 - name: Convert kerberos.schema to LDIF
-  ansible.builtin.command:
-    cmd: "slaptest -f {{ kerberos_convert_conf }} -F {{ kerberos_schema_tmpdir }}"
+  ansible.builtin.command: >
+    slaptest -f {{ kerberos_convert_conf }} -F {{ kerberos_schema_tmpdir }}
   when: kerberos_schema_check.rc != 0
 
 - name: Add Kerberos schema to slapd
-  ansible.builtin.command:
-    cmd: "ldapadd -Y EXTERNAL -H ldapi:/// -f {{ kerberos_schema_tmpdir }}/cn=config/cn=schema/cn={0}kerberos.ldif"
+  ansible.builtin.command: >
+    ldapadd -Y EXTERNAL -H ldapi:/// -f {{ kerberos_schema_tmpdir }}/cn=config/cn=schema/cn={0}kerberos.ldif
   when: kerberos_schema_check.rc != 0
 
 - name: Cleanup temporary kerberos schema files
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
-  loop:
+  with_items:
     - "{{ kerberos_convert_conf }}"
     - "{{ kerberos_schema_tmpdir }}"
