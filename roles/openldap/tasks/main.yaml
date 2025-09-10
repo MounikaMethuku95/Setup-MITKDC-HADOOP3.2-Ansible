@@ -1,4 +1,5 @@
-# ========= Install OpenLDAP =========
+# ========= OpenLDAP Role Tasks =========
+
 - name: Install OpenLDAP
   ansible.builtin.package:
     name: "{{ item }}"
@@ -13,26 +14,24 @@
     state: started
     enabled: yes
 
-# ========= Generate hashed LDAP root password =========
+# ========= RootDN setup =========
 - name: Generate hashed LDAP root password
-  ansible.builtin.command: >
-    slappasswd -s {{ ldap_rootpw }}
-  register: hashed_pw
+  ansible.builtin.command: slappasswd -s "{{ ldap_rootpw }}"
+  register: ldap_passwd_hash
   changed_when: false
 
 - name: Set fact for ldap_hashed_pw
   ansible.builtin.set_fact:
-    ldap_hashed_pw: "{{ hashed_pw.stdout }}"
+    ldap_hashed_pw: "{{ ldap_passwd_hash.stdout }}"
 
-# ========= Configure rootDN and suffix =========
 - name: Render LDIF for suffix and rootDN
   ansible.builtin.template:
     src: configure-rootdn.ldif.j2
     dest: /tmp/configure-rootdn.ldif
 
 - name: Apply LDAP rootDN and suffix config
-  ansible.builtin.command: >
-    ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  ansible.builtin.command:
+    cmd: "ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif"
   args:
     creates: "{{ rootdn_marker }}"
 
@@ -41,37 +40,33 @@
     path: "{{ rootdn_marker }}"
     state: touch
 
-# ========= Configure baseDN =========
+# ========= BaseDN entry =========
 - name: Render LDIF for baseDN entry
   ansible.builtin.template:
     src: basedn.ldif.j2
     dest: /tmp/basedn.ldif
 
 - name: Check if baseDN already exists
-  ansible.builtin.command: >
-    ldapsearch -LLL -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    -b "{{ basedn }}" dn
+  ansible.builtin.command:
+    cmd: "ldapsearch -x -D '{{ ldap_rootdn }}' -w '{{ ldap_rootpw }}' -b '{{ basedn }}'"
   register: basedn_check
-  failed_when: false
   changed_when: false
+  failed_when: false
 
 - name: Add baseDN entry to LDAP
-  ansible.builtin.command: >
-    ldapadd -Y EXTERNAL -H ldapi:/// -f /tmp/basedn.ldif
+  ansible.builtin.command:
+    cmd: "ldapadd -x -D '{{ ldap_rootdn }}' -w '{{ ldap_rootpw }}' -f /tmp/basedn.ldif"
   when: basedn_check.rc != 0
-  args:
-    creates: "{{ basedn_marker }}"
 
 - name: Create marker file for baseDN
   ansible.builtin.file:
     path: "{{ basedn_marker }}"
     state: touch
-  when: basedn_check.rc != 0
 
-# ========= Kerberos Schema =========
+# ========= Kerberos schema =========
 - name: Check if kerberos schema already added
-  ansible.builtin.command: >
-    ldapsearch -LLL -Y EXTERNAL -H ldapi:/// -b "cn=schema,cn=config" cn=kerberos
+  ansible.builtin.command:
+    cmd: "ldapsearch -Y EXTERNAL -H ldapi:/// -b cn=schema,cn=config cn=kerberos"
   register: kerberos_schema_check
   failed_when: false
   changed_when: false
@@ -87,14 +82,9 @@
     state: directory
 
 - name: Create minimal slapd.conf for kerberos schema
-  ansible.builtin.copy:
+  ansible.builtin.template:
+    src: kerberos_convert.conf.j2
     dest: "{{ kerberos_convert_conf }}"
-    content: |
-      include {{ kerberos_schema_file }}
-      pidfile /tmp/slapd.pid
-      argsfile /tmp/slapd.args
-      database config
-      rootdn "cn=admin,cn=config"
 
 - name: Convert kerberos.schema to LDIF
   ansible.builtin.command: >
@@ -110,6 +100,6 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: absent
-  with_items:
+  loop:
     - "{{ kerberos_convert_conf }}"
     - "{{ kerberos_schema_tmpdir }}"
