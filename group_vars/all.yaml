@@ -1,0 +1,22 @@
+---
+# ========= Kerberos Configuration =========
+
+realm: "HADOOP.TEST"
+kdc_master_pw: "Idontknow123"
+
+# ========= LDAP Integration =========
+basedn: "dc=hadoop,dc=test"
+ldap_rootdn: "cn=Manager,{{ basedn }}"
+ldap_rootpw: "supergirl123"
+
+kerberos_container_dn: "ou=Kerberos,{{ basedn }}"
+kdc_ldap_dn: "cn=krb-svc,{{ kerberos_container_dn }}"
+kdc_ldap_pw: "krbldap123"
+
+kerberos_service_dn: "{{ kdc_ldap_dn }}"
+kerberos_service_pw: "{{ kdc_ldap_pw }}"
+kerberos_service_keyfile: "/var/kerberos/krb5kdc/service.keyfile"
+
+# ========= Idempotency markers =========
+kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
+kerberos_db_marker: "/etc/krb5kdc/kerberos_db_created"
