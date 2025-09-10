@@ -1,24 +1,45 @@
 [kdcdefaults]
- kdc_ports = 88
- kdc_tcp_ports = 88
+    kdc_ports = 88
+    kdc_tcp_ports = 88
 
 [realms]
- {{ realm }} = {
-   database_module = ldap
-   acl_file = /var/kerberos/krb5kdc/kadm5.acl
-   key_stash_file = /var/kerberos/krb5kdc/.k5.{{ realm }}
-   admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
-   default_principal_flags = +preauth
- }
+    HADOOP.TEST = {
+        # Use LDAP backend
+        database_module = ldap
+
+        # ACL for kadmind (admin policies)
+        acl_file = /var/kerberos/krb5kdc/kadm5.acl
+
+        # Master key stash file (created when DB is initialized)
+        key_stash_file = /var/kerberos/krb5kdc/.k5.HADOOP.TEST
+
+        # Where kadmind stores its keytab
+        admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+
+        # Default principal flags (require pre-authentication)
+        default_principal_flags = +preauth
+    }
 
 [dbmodules]
-ldap = {
-   db_library = kldap
-   ldap_servers = ldap://localhost
-   ldap_kerberos_container_dn = ou=Kerberos,dc=hadoop,dc=test
-   ldap_kdc_dn = cn=Manager,dc=hadoop,dc=test
-   ldap_kadmind_dn = cn=Manager,dc=hadoop,dc=test
-   ldap_service_password_file = /etc/krb5kdc/service.keyfile   # <-- updated
-   ldap_conns_per_server = 5
-}
+    ldap = {
+        # Use LDAP backend driver
+        db_library = kldap
 
+        # LDAP server location
+        ldap_servers = ldap://localhost
+
+        # Kerberos container where principals will be stored
+        ldap_kerberos_container_dn = ou=Kerberos,dc=hadoop,dc=test
+
+        # Bind DN for KDC processes
+        ldap_kdc_dn = cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test
+
+        # Bind DN for kadmind
+        ldap_kadmind_dn = cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test
+
+        # Service keyfile (populated by Ansible from kdc_ldap_dn / kdc_ldap_pw)
+        ldap_service_password_file = /etc/krb5kdc/service.keyfile
+
+        # Allow multiple LDAP connections
+        ldap_conns_per_server = 5
+    }

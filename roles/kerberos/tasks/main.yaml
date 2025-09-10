@@ -67,11 +67,13 @@
   copy:
     dest: /etc/krb5kdc/service.keyfile
     content: |
-      {{ kerberos_service_dn }}
-      {{ kerberos_service_pw }}
+      {{ kdc_ldap_dn }}
+      {{ kdc_ldap_pw }}
     owner: root
     group: root
     mode: '0600'
+
+
 
 - name: Verify ldap service keyfile exists
   stat:
@@ -89,16 +91,14 @@
 # ========= Create Kerberos database with LDAP backend =========
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.expect:
-    command: kdb5_util create -r {{ realm }} -s
+    command: "kdb5_util create -r {{ realm }} -s"
     responses:
       "Enter KDC database master key:": "{{ kdc_master_pw }}"
       "Re-enter KDC database master key to verify:": "{{ kdc_master_pw }}"
   when: not kerberos_db_marker_check.stat.exists
 
-
-
 # ========= Create marker after DB creation =========
-- name: Create marker for Kerberos DB
+- name: Create Kerberos DB marker
   ansible.builtin.file:
     path: "{{ kerberos_db_marker }}"
     state: touch

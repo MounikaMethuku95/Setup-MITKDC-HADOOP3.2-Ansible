@@ -3,7 +3,7 @@
 # Kerberos realm
 realm: "HADOOP.TEST"
 
-# Master password for Kerberos database
+# Master password for Kerberos database (used with expect in DB creation)
 kdc_master_pw: "Idontknow123"
 
 # ========= LDAP Integration =========
@@ -29,4 +29,3 @@ kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
 
 # Marker to avoid re-creating Kerberos DB
 kerberos_db_marker: "/etc/krb5kdc/kerberos_db_created"
-
