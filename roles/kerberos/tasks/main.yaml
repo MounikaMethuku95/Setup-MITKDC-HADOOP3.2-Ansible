@@ -73,11 +73,11 @@
 
 # ========= Create ldap-service.keyfile for KDC/LDAP binding =========
 - name: Create ldap-service.keyfile
-  copy:
-    dest: /etc/krb5kdc/service.keyfile
+  ansible.builtin.copy:
+    dest: "{{ kerberos_service_keyfile }}"
     content: |
-      {{ kdc_ldap_dn }}
-      {{ kdc_ldap_pw }}
+      {{ kerberos_service_dn }}
+      {{ kerberos_service_pw }}
     owner: root
     group: root
     mode: '0600'
