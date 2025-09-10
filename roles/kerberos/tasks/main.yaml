@@ -1,3 +1,5 @@
+# roles/kerberos/tasks/main.yaml
+
 # ========= Install Kerberos packages =========
 - name: Install Kerberos packages
   ansible.builtin.package:
@@ -11,23 +13,20 @@
     - openldap-clients
     - python-ldap
 
+# ========= Ensure kerberos templates directory exists (tmp) =========
 - name: Ensure kerberos templates directory exists (tmp)
   ansible.builtin.file:
-    path: /tmp/ansible-kerberos
+    path: /tmp/kerberos
     state: directory
     mode: '0755'
 
-# ------------------------------
-# Ensure Kerberos container (ou=Kerberos,dc=...) exists
-# ------------------------------
+# ========= Render kerberos container LDIF =========
 - name: Render kerberos container LDIF (for debugging / backup)
   ansible.builtin.template:
-    src: kerberos-container.ldif.j2
-    dest: /tmp/ansible-kerberos/kerberos-container.ldif
-    owner: root
-    group: root
-    mode: '0600'
+    src: kerberos_container.ldif.j2
+    dest: /tmp/kerberos/kerberos_container.ldif
 
+# ========= Ensure Kerberos container exists =========
 - name: Ensure Kerberos container exists (bind with Manager DN)
   community.general.ldap_entry:
     dn: "{{ kerberos_container_dn }}"
@@ -39,21 +38,16 @@
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
-    validate_certs: false
   register: kerberos_container
   failed_when: kerberos_container is failed
 
-# ------------------------------
-# Ensure Kerberos service account exists (kdc LDAP bind account)
-# ------------------------------
+# ========= Render kerberos service account LDIF =========
 - name: Render kerberos service account LDIF (for debugging / backup)
   ansible.builtin.template:
-    src: kerberos-service.ldif.j2
-    dest: /tmp/ansible-kerberos/kerberos-service.ldif
-    owner: root
-    group: root
-    mode: '0600'
+    src: kerberos_service.ldif.j2
+    dest: /tmp/kerberos/kerberos_service.ldif
 
+# ========= Ensure Kerberos service account exists =========
 - name: Ensure Kerberos service account exists (bind with Manager DN)
   community.general.ldap_entry:
     dn: "{{ kdc_ldap_dn }}"
@@ -61,51 +55,47 @@
       - simpleSecurityObject
       - organizationalRole
     attributes:
-      cn: "{{ kdc_ldap_dn.split(',')[0].split('=')[1] | default('krb-svc') }}"
+      cn: krb-svc
       userPassword: "{{ kdc_ldap_pw }}"
-      description: "Kerberos LDAP Bind Account"
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
-    validate_certs: false
-  register: kerberos_service_account
-  failed_when: kerberos_service_account is failed
 
-# ------------------------------
-# Create Kerberos DB (kdb5_ldap_util)
-# - Ensure container exists first (we did above)
-# - Use creates: marker to keep idempotency
-# ------------------------------
+# ========= Create ldap-service.keyfile for KDC/LDAP binding =========
+- name: Create ldap-service.keyfile
+  ansible.builtin.copy:
+    dest: /var/kerberos/krb5kdc/ldap-service.keyfile
+    content: "{{ kdc_ldap_pw }}"
+    owner: root
+    group: root
+    mode: '0600'
+
+# ========= Create Kerberos database with LDAP backend =========
 - name: Check for Kerberos DB marker file
   ansible.builtin.stat:
-    path: "{{ kerberos_db_marker | default('/etc/krb5kdc/kerberos_db_created') }}"
-  register: kerberos_db_marker_stat
+    path: "{{ kerberos_db_marker }}"
+  register: db_marker
 
 - name: Create Kerberos database with LDAP backend
-  ansible.builtin.command:
-    cmd: >
-      kdb5_ldap_util -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-      create -subtrees "{{ kerberos_container_dn }}"
-      -r "{{ realm }}" -s -H ldap://localhost -P "{{ kdc_master_pw }}"
-  register: kdb_create
-  changed_when: kdb_create.rc == 0
-  failed_when: kdb_create.rc not in [0,1]  # some versions return 1 with warnings; adjust if needed
-  when: not kerberos_db_marker_stat.stat.exists
+  ansible.builtin.expect:
+    command: kdb5_util create -r {{ realm }} -s -D {{ kdc_ldap_dn }}
+    responses:
+      (?i)Enter KDC database master key: "{{ kdc_master_pw }}"
+      (?i)Re-enter KDC database master key to verify: "{{ kdc_master_pw }}"
+  when: not db_marker.stat.exists
 
 - name: Create marker for Kerberos DB
   ansible.builtin.file:
-    path: "{{ kerberos_db_marker | default('/etc/krb5kdc/kerberos_db_created') }}"
+    path: "{{ kerberos_db_marker }}"
     state: touch
-  when: kdb_create is defined and kdb_create.rc == 0
+  when: not db_marker.stat.exists
 
-# ------------------------------
-# Ensure Kerberos services running
-# ------------------------------
+# ========= Ensure KDC and admin services are enabled and running =========
 - name: Ensure KDC and admin services are enabled and running
-  ansible.builtin.systemd:
+  ansible.builtin.service:
     name: "{{ item }}"
     state: started
-    enabled: true
+    enabled: yes
   loop:
     - krb5kdc
     - kadmin

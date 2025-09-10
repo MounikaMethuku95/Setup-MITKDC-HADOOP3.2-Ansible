@@ -1,20 +1,32 @@
+# roles/kerberos/templates/krb5.conf.j2
+
 [libdefaults]
- default_realm = {{ realm }}
- dns_lookup_realm = false
- dns_lookup_kdc = false
- ticket_lifetime = 24h
- renew_lifetime = 7d
- forwardable = true
- rdns = false
- # Helps avoid hostname reverse-DNS issues
- udp_preference_limit = 1
+  default_realm = {{ realm }}
+  dns_lookup_realm = false
+  dns_lookup_kdc = false
+  ticket_lifetime = 24h
+  renew_lifetime = 7d
+  forwardable = true
 
 [realms]
- {{ realm }} = {
-  kdc = localhost
-  admin_server = localhost
- }
+  {{ realm }} = {
+    # Use LDAP backend
+    database_module = openldap_ldapconf
+    admin_server = localhost
+    kdc = localhost
+  }
 
 [domain_realm]
- .hadoop.test = {{ realm }}
- hadoop.test = {{ realm }}
+  .{{ realm | lower }} = {{ realm }}
+  {{ realm | lower }} = {{ realm }}
+
+[dbmodules]
+  openldap_ldapconf = {
+    db_library = kldap
+    ldap_kerberos_container_dn = {{ kerberos_container_dn }}
+    ldap_kdc_dn = {{ kdc_ldap_dn }}
+    ldap_kadmind_dn = {{ kdc_ldap_dn }}
+    ldap_service_password_file = /var/kerberos/krb5kdc/ldap-service.keyfile
+    ldap_servers = ldap://localhost
+    ldap_conns_per_server = 5
+  }

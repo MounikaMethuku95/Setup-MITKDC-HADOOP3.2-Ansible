@@ -3,21 +3,21 @@
  kdc_tcp_ports = 88
 
 [realms]
- {{ realm }} = {
-  # Location of the Kerberos database (LDAP backend)
-  database_module = openldap_ldapconf
-  admin_keytab = FILE:/var/kerberos/krb5kdc/kadm5.keytab
-  max_life = 10h
-  max_renewable_life = 7d
+ HADOOP.TEST = {
+   database_module = ldap
+   acl_file = /var/kerberos/krb5kdc/kadm5.acl
+   key_stash_file = /var/kerberos/krb5kdc/.k5.HADOOP.TEST
+   admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+   default_principal_flags = +preauth
  }
-
+ 
 [dbmodules]
- openldap_ldapconf = {
-  db_library = kldap
-  ldap_kerberos_container_dn = {{ krb_subtree }}
-  ldap_kdc_dn = {{ kdc_ldap_dn }}
-  ldap_kadmind_dn = {{ kdc_ldap_dn }}
-  ldap_service_password_file = /etc/krb5kdc/service.keyfile
-  ldap_servers = ldapi:///
-  ldap_conns_per_server = 5
+ ldap = {
+   db_library = kldap
+   ldap_servers = ldap://localhost
+   ldap_kerberos_container_dn = ou=Kerberos,dc=hadoop,dc=test
+   ldap_kdc_dn = cn=Manager,dc=hadoop,dc=test
+   ldap_kadmind_dn = cn=Manager,dc=hadoop,dc=test
+   ldap_service_password_file = /var/kerberos/krb5kdc/ldap-service.keyfile
+   ldap_conns_per_server = 5
  }
