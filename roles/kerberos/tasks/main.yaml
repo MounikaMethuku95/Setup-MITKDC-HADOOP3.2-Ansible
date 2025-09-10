@@ -1,10 +1,11 @@
+# ========= Install Kerberos packages =========
 - name: Install Kerberos packages
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop:
+  loop: 
   - krb5-server
-  - krb5-server-ldap 
+  - krb5-server-ldap
   - krb5-libs
   - krb5-workstation
   - openldap-clients
@@ -19,24 +20,17 @@
       - organizationalUnit
     attributes:
       ou: Kerberos
-  register: kerberos_container
-  failed_when: kerberos_container is failed
-  notify: restart kerberos
-  args:
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
-
-- name: Create marker for Kerberos container
-  ansible.builtin.file:
-    path: "{{ kerberos_container_marker }}"
-    state: touch
-  when: kerberos_container.changed
+  register: kerberos_container
+  failed_when: kerberos_container is failed
+  notify: restart kerberos
 
 # ========= Create Kerberos service account =========
 - name: Ensure Kerberos service account exists
   community.general.ldap_entry:
-    dn: "{{ kdc_ldap_dn }}"
+    dn: "cn=krb-svc,{{ kerberos_container_dn }}"
     objectClass:
       - simpleSecurityObject
       - organizationalRole
@@ -44,7 +38,6 @@
       cn: krb-svc
       userPassword: "{{ kdc_ldap_pw }}"
       description: "Kerberos LDAP Bind Account"
-  args:
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
@@ -52,23 +45,19 @@
 # ========= Create Kerberos database =========
 - name: Create Kerberos database with LDAP backend
   ansible.builtin.command: >
-    kdb5_ldap_util -D {{ ldap_rootdn }} -w {{ ldap_rootpw }}
-    create -subtrees {{ kerberos_container_dn }}
-    -r {{ realm }} -s -P {{ kdc_master_pw }}
+    kdb5_ldap_util -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    create -subtrees "{{ kerberos_container_dn }}"
+    -r "{{ realm }}" -s -H ldap://localhost
+    -P "{{ kdc_master_pw }}"
   args:
-    creates: "{{ kerberos_db_marker }}"
-
-- name: Create marker for Kerberos DB
-  ansible.builtin.file:
-    path: "{{ kerberos_db_marker }}"
-    state: touch
+    creates: /var/kerberos/krb5kdc/principal
 
 # ========= Enable and start Kerberos services =========
 - name: Ensure KDC and admin services are enabled and running
-  ansible.builtin.service:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: started
-    enabled: yes
+    enabled: true
   loop:
     - krb5kdc
     - kadmin
