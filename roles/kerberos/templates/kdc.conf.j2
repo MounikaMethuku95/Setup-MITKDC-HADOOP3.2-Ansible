@@ -29,18 +29,19 @@
         ldap_servers = ldap://localhost
 
         # Kerberos container where principals will be stored
-        ldap_kerberos_container_dn = ou=Kerberos,dc=hadoop,dc=test
+        ldap_kerberos_container_dn = {{ kerberos_container_dn }}
 
         # Bind DN for KDC processes
-        ldap_kdc_dn = cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test
+        ldap_kdc_dn = {{ kdc_ldap_dn }}
 
         # Bind DN for kadmind
-        ldap_kadmind_dn = cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test
+        ldap_kadmind_dn = {{ kdc_ldap_dn }}
 
-        # Service keyfile (populated by Ansible from kdc_ldap_dn / kdc_ldap_pw)
+        # Service keyfile (pointing to /var/kerberos/krb5kdc/service.keyfile)
         ldap_service_password_file = {{ kerberos_service_keyfile }}
 
         # Allow multiple LDAP connections
         ldap_conns_per_server = 5
     }
+
 
