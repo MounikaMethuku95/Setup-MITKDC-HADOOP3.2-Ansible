@@ -1,5 +1,4 @@
-# ========= Kerberos Role Tasks =========
-
+# ========= Install Kerberos packages =========
 - name: Install Kerberos packages
   ansible.builtin.package:
     name: "{{ item }}"
@@ -12,7 +11,7 @@
     - openldap-clients
     - python-ldap
 
-# ========= Ensure Kerberos container exists =========
+# ========= Ensure Kerberos container exists in LDAP =========
 - name: Ensure Kerberos container exists
   community.general.ldap_entry:
     dn: "{{ kerberos_container_dn }}"
@@ -24,11 +23,15 @@
     bind_dn: "{{ ldap_rootdn }}"
     bind_pw: "{{ ldap_rootpw }}"
     server_uri: "ldap://localhost"
+  register: kerberos_container
+  failed_when: kerberos_container is failed
+  notify: restart kerberos
 
 - name: Create marker for Kerberos container
   ansible.builtin.file:
     path: "{{ kerberos_container_marker }}"
     state: touch
+  when: kerberos_container.changed
 
 # ========= Create Kerberos service account =========
 - name: Ensure Kerberos service account exists
