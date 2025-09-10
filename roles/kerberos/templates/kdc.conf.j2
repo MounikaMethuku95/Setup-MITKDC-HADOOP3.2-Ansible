@@ -3,21 +3,21 @@
  kdc_tcp_ports = 88
 
 [realms]
- HADOOP.TEST = {
+ {{ realm }} = {
    database_module = ldap
    acl_file = /var/kerberos/krb5kdc/kadm5.acl
-   key_stash_file = /var/kerberos/krb5kdc/.k5.HADOOP.TEST
+   key_stash_file = /var/kerberos/krb5kdc/.k5.{{ realm }}
    admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
    default_principal_flags = +preauth
  }
- 
+
 [dbmodules]
  ldap = {
    db_library = kldap
    ldap_servers = ldap://localhost
-   ldap_kerberos_container_dn = ou=Kerberos,dc=hadoop,dc=test
-   ldap_kdc_dn = cn=Manager,dc=hadoop,dc=test
-   ldap_kadmind_dn = cn=Manager,dc=hadoop,dc=test
+   ldap_kerberos_container_dn = {{ kerberos_container_dn }}
+   ldap_kdc_dn = {{ kdc_ldap_dn }}
+   ldap_kadmind_dn = {{ kdc_ldap_dn }}
    ldap_service_password_file = /var/kerberos/krb5kdc/ldap-service.keyfile
    ldap_conns_per_server = 5
  }

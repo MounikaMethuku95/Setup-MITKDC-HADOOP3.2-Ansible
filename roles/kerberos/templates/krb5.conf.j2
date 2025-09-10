@@ -7,26 +7,14 @@
   ticket_lifetime = 24h
   renew_lifetime = 7d
   forwardable = true
+  rdns = false
 
 [realms]
   {{ realm }} = {
-    # Use LDAP backend
-    database_module = openldap_ldapconf
-    admin_server = localhost
-    kdc = localhost
+    kdc = {{ ansible_fqdn }}
+    admin_server = {{ ansible_fqdn }}
   }
 
 [domain_realm]
-  .{{ realm | lower }} = {{ realm }}
-  {{ realm | lower }} = {{ realm }}
-
-[dbmodules]
-  openldap_ldapconf = {
-    db_library = kldap
-    ldap_kerberos_container_dn = {{ kerberos_container_dn }}
-    ldap_kdc_dn = {{ kdc_ldap_dn }}
-    ldap_kadmind_dn = {{ kdc_ldap_dn }}
-    ldap_service_password_file = /var/kerberos/krb5kdc/ldap-service.keyfile
-    ldap_servers = ldap://localhost
-    ldap_conns_per_server = 5
-  }
+  .{{ basedn.split(',')[0].split('=')[1] }}.{{ basedn.split(',')[1].split('=')[1] }} = {{ realm }}
+  {{ basedn.split(',')[0].split('=')[1] }}.{{ basedn.split(',')[1].split('=')[1] }} = {{ realm }}

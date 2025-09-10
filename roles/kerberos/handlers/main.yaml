@@ -1,10 +1,9 @@
-# ========= Kerberos Role Handlers =========
-
-- name: restart kerberos
-  ansible.builtin.systemd:
-    name: "{{ item }}"
+- name: Restart krb5kdc
+  ansible.builtin.service:
+    name: krb5kdc
     state: restarted
-  loop:
-    - krb5kdc
-    - kadmin
 
+- name: Restart kadmin
+  ansible.builtin.service:
+    name: kadmin
+    state: restarted
