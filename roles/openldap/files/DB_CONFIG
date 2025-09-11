@@ -1,0 +1,14 @@
+# DB_CONFIG for OpenLDAP LMDB backend
+# Tuned for small memory (t2.micro with 1 GB RAM)
+
+# Cache size: 2 MB (enough for small DITs)
+set_cachesize 0 2097152 0
+
+# Log buffer size: 256 KB
+set_lg_bsize 262144
+
+# Log directory (default to /var/lib/ldap)
+set_lg_dir /var/lib/ldap
+
+# Auto-remove old log files to save disk space
+set_flags DB_LOG_AUTOREMOVE
