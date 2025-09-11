@@ -1,4 +1,5 @@
-dn: {{ kerberos_container_dn }}
+# Kerberos container organizational unit
+dn: ou=Kerberos,{{ ldap_basedn }}
 objectClass: top
 objectClass: organizationalUnit
 ou: Kerberos

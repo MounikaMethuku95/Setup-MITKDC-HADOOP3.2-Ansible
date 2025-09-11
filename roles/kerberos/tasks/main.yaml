@@ -1,129 +1,93 @@
-# roles/kerberos/tasks/main.yaml
+---
+# Kerberos role tasks
 
-# ========= Install Kerberos packages =========
 - name: Install Kerberos packages
-  ansible.builtin.package:
+  package:
     name: "{{ item }}"
     state: present
-  loop:
-    - krb5-server
-    - krb5-server-ldap
-    - krb5-libs
-    - krb5-workstation
-    - openldap-clients
-    - python-ldap
-    - python3-pexpect
+  loop: "{{ kerberos_packages }}"
 
+# --- LDAP Container for Kerberos ---
 - name: Ensure kerberos templates directory exists (tmp)
-  ansible.builtin.file:
-    path: /tmp/kerberos-templates
+  file:
+    path: /tmp
     state: directory
     mode: '0755'
 
-# --- LDAP Container ---
 - name: Render kerberos container LDIF
-  ansible.builtin.template:
+  template:
     src: kerberos-container.ldif.j2
     dest: /tmp/kerberos-container.ldif
 
 - name: Create Kerberos container in LDAP
-  ansible.builtin.command:
-    cmd: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -H ldap://localhost -f /tmp/kerberos-container.ldif
-  register: container_add
-  failed_when: container_add.rc != 0 and "Already exists" not in container_add.stderr
+  command: ldapadd -x -D "cn=Manager,{{ ldap_basedn }}" -w "{{ ldap_admin_pw }}" -H ldap://localhost -f /tmp/kerberos-container.ldif
+  register: add_container
+  failed_when: add_container.rc != 0 and "Already exists" not in add_container.stderr
 
-# --- Service Account ---
+# --- Kerberos Service Account ---
 - name: Render kerberos service account LDIF
-  ansible.builtin.template:
+  template:
     src: kerberos-service.ldif.j2
     dest: /tmp/kerberos-service.ldif
 
 - name: Create Kerberos service account in LDAP
-  ansible.builtin.command:
-    cmd: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -H ldap://localhost -f /tmp/kerberos-service.ldif
-  register: svc_add
-  failed_when: svc_add.rc != 0 and "Already exists" not in svc_add.stderr
+  command: ldapadd -x -D "cn=Manager,{{ ldap_basedn }}" -w "{{ ldap_admin_pw }}" -H ldap://localhost -f /tmp/kerberos-service.ldif
+  register: add_service
+  failed_when: add_service.rc != 0 and "Already exists" not in add_service.stderr
 
 # --- Service Keyfile ---
 - name: Ensure Kerberos keyfile directory exists
-  ansible.builtin.file:
+  file:
     path: "{{ kerberos_db_dir }}"
     state: directory
-    owner: root
-    group: root
     mode: '0700'
 
 - name: Create service.keyfile (one-line format)
-  ansible.builtin.copy:
+  copy:
     dest: "{{ kerberos_db_dir }}/service.keyfile"
-    content: "cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test {{ krb_svc_pw }}\n"
+    content: "{{ krb_svc_dn }} {{ krb_svc_pw }}\n"
     owner: root
     group: root
     mode: '0600'
 
 - name: Verify service.keyfile contents
-  ansible.builtin.shell: "cat {{ kerberos_service_keyfile }}"
-  register: keyfile_check
-  changed_when: false
+  command: cat "{{ kerberos_db_dir }}/service.keyfile"
+  register: keyfile_content
 
 - debug:
-    msg: "Service keyfile contains: {{ keyfile_check.stdout }}"
+    msg: "Service keyfile contains: {{ keyfile_content.stdout }}"
 
-# --- Config Files ---
+# --- Configurations ---
 - name: Deploy kdc.conf
-  ansible.builtin.template:
-    src: kdc.conf.j2
-    dest: "{{ kerberos_db_dir }}/kdc.conf"
-    owner: root
-    group: root
-    mode: '0644'
-
-- name: Deploy kadm5.acl
-  ansible.builtin.template:
-    src: kadm5.acl.j2
-    dest: "{{ kerberos_db_dir }}/kadm5.acl"
-    owner: root
-    group: root
-    mode: '0600'
-
-# --- Database ---
-- name: Check for Kerberos DB marker file
-  ansible.builtin.stat:
-    path: "{{ kerberos_db_dir }}/principal"
-  register: krb5_db
-
-- name: Create Kerberos database with LDAP backend (non-interactive)
-  expect:
-    command: "kdb5_util create -r {{ kerberos_realm }} -s"
-    responses:
-      "Enter KDC database master key:": "{{ kdc_master_pw }}"
-      "Re-enter KDC database master key to verify:": "{{ kdc_master_pw }}"
-  args:
-    creates: "{{ kerberos_db_marker }}"
-  register: kdb_create
-  failed_when: kdb_create.rc != 0
-
-
-# ========= Deploy kdc.conf =========
-- name: Deploy kdc.conf
-  ansible.builtin.template:
+  template:
     src: kdc.conf.j2
     dest: /var/kerberos/krb5kdc/kdc.conf
     owner: root
     group: root
     mode: '0644'
-  notify:
-    - Restart krb5kdc
-    - Restart kadmin
 
-# ========= Deploy kadm5.acl =========
 - name: Deploy kadm5.acl
-  ansible.builtin.template:
+  template:
     src: kadm5.acl.j2
     dest: /var/kerberos/krb5kdc/kadm5.acl
     owner: root
     group: root
-    mode: '0600'
-  notify:
-    - Restart krb5kdc
-    - Restart kadmin
+    mode: '0644'
+
+# --- KDC Database ---
+- name: Check for Kerberos DB marker file
+  stat:
+    path: "{{ kerberos_db_dir }}/principal.ok"
+  register: kerberos_db_marker
+
+- name: Create Kerberos database with LDAP backend (non-interactive)
+  command: kdb5_util create -r {{ kerberos_realm }} -s
+  environment:
+    KRB5_KDC_PROFILE: /var/kerberos/krb5kdc/kdc.conf
+  when: not kerberos_db_marker.stat.exists
+
+- name: Mark Kerberos DB as created
+  file:
+    path: "{{ kerberos_db_dir }}/principal.ok"
+    state: touch
+  when: not kerberos_db_marker.stat.exists

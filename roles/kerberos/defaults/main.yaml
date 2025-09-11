@@ -1,35 +1,30 @@
-# ========= Kerberos Configuration =========
-
 # Kerberos realm
 kerberos_realm: "HADOOP.TEST"
 
-# Directory where KDC stores its database and configs
+# LDAP base DN
+ldap_basedn: "dc=hadoop,dc=test"
+
+# Kerberos service account in LDAP
+krb_svc_dn: "cn=krb-svc,ou=Kerberos,{{ ldap_basedn }}"
+krb_svc_pw: "krbldap123"
+
+# Kerberos DB directory
 kerberos_db_dir: "/var/kerberos/krb5kdc"
 
-# Master password for Kerberos database
-kdc_master_pw: "Idontknow123"
+# KDC ports
+kdc_ports: "88"
+kdc_tcp_ports: "88"
 
-# ========= LDAP Integration =========
+# ACL settings
+kadm5_acl_entries:
+  - "*/admin@{{ kerberos_realm }} *"
 
-# Base DN (must match OpenLDAP role)
-basedn: "dc=hadoop,dc=test"
-
-# RootDN credentials
-ldap_rootdn: "cn=Manager,{{ basedn }}"
-ldap_rootpw: "supergirl123"
-
-# Kerberos container location in LDAP
-kerberos_container_dn: "ou=Kerberos,{{ basedn }}"
-
-# Service account DN and password for KDC <-> LDAP binding
-kdc_ldap_dn: "cn=krb-svc,{{ kerberos_container_dn }}"
-kdc_ldap_pw: "krbldap123"
-
-# Service keyfile configuration
-kerberos_service_dn: "{{ kdc_ldap_dn }}"
-kerberos_service_pw: "{{ kdc_ldap_pw }}"
-kerberos_service_keyfile: "{{ kerberos_db_dir }}/service.keyfile"
-
-# ========= Idempotency markers =========
-kerberos_container_marker: "/etc/krb5kdc/kerberos_container_configured"
-kerberos_db_marker: "/etc/krb5kdc/kerberos_db_created"
+# Package list
+kerberos_packages:
+  - krb5-server
+  - krb5-server-ldap
+  - krb5-libs
+  - krb5-workstation
+  - openldap-clients
+  - python-ldap
+  - python3-pexpect
