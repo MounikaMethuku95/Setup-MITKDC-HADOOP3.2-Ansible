@@ -1,10 +1,12 @@
-dn: olcDatabase={2}mdb,cn=config
+# Configure rootDN for the main database (usually {2}hdb or {2}mdb)
+dn: olcDatabase={2}{{ ldap_db_type }},cn=config
 changetype: modify
-replace: olcSuffix
-olcSuffix: {{ ldap_suffix }}
--
 replace: olcRootDN
 olcRootDN: {{ ldap_rootdn }}
+
 -
+
+dn: olcDatabase={2}{{ ldap_db_type }},cn=config
+changetype: modify
 replace: olcRootPW
 olcRootPW: {{ ldap_hashed_pw }}
