@@ -62,9 +62,7 @@
 - name: Create ldap-service.keyfile
   ansible.builtin.copy:
     dest: "{{ kerberos_service_keyfile }}"
-    content: |
-      {{ kerberos_service_dn }}
-      {{ kerberos_service_pw }}
+    content: "{{ kerberos_service_dn }} {{ kerberos_service_pw }}"
     owner: root
     group: root
     mode: '0600'
