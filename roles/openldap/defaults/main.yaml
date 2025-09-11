@@ -4,6 +4,10 @@ basedn: "dc=hadoop,dc=test"
 # For compatibility with templates
 ldap_suffix: "{{ basedn }}"
 
+#Database type and number(mdb is default in newer OpenLDAP)
+ldap_db_type: "mdb"
+ldap_db_number: "2"
+
 # Root DN for database {2}mdb
 ldap_db_dn: "olcDatabase={2}mdb,cn=config"
 
