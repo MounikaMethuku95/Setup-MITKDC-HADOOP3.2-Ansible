@@ -1,47 +1,28 @@
 [kdcdefaults]
-    kdc_ports = 88
-    kdc_tcp_ports = 88
+ kdc_ports = 88
+ kdc_tcp_ports = 88
 
 [realms]
-    HADOOP.TEST = {
-        # Use LDAP backend
-        database_module = ldap
-
-        # ACL for kadmind (admin policies)
-        acl_file = /var/kerberos/krb5kdc/kadm5.acl
-
-        # Master key stash file (created when DB is initialized)
-        key_stash_file = /var/kerberos/krb5kdc/.k5.HADOOP.TEST
-
-        # Where kadmind stores its keytab
-        admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
-
-        # Default principal flags (require pre-authentication)
-        default_principal_flags = +preauth
-    }
+ {{ realm }} = {
+   database_module = openldap_ldapconf
+   acl_file = /var/kerberos/krb5kdc/kadm5.acl
+   dict_file = /usr/share/dict/words
+   admin_keytab = /var/kerberos/krb5kdc/kadm5.keytab
+   key_stash_file = /var/kerberos/krb5kdc/.k5.{{ realm }}
+   ldap_service_password_file = {{ kerberos_service_keyfile }}
+   ldap_kdc_dn = {{ kerberos_service_dn }}
+   ldap_kadmind_dn = {{ kerberos_service_dn }}
+   ldap_servers = ldap://localhost
+   ldap_conns_per_server = 5
+ }
 
 [dbmodules]
-    ldap = {
-        # Use LDAP backend driver
-        db_library = kldap
-
-        # LDAP server location
-        ldap_servers = ldap://localhost
-
-        # Kerberos container where principals will be stored
-        ldap_kerberos_container_dn = {{ kerberos_container_dn }}
-
-        # Bind DN for KDC processes
-        ldap_kdc_dn = {{ kdc_ldap_dn }}
-
-        # Bind DN for kadmind
-        ldap_kadmind_dn = {{ kdc_ldap_dn }}
-
-        # Service keyfile (pointing to /var/kerberos/krb5kdc/service.keyfile)
-        ldap_service_password_file = /var/kerberos/krb5kdc/service.keyfile
-
-        # Allow multiple LDAP connections
-        ldap_conns_per_server = 5
-    }
-
-
+ openldap_ldapconf = {
+   db_library = kldap
+   ldap_kerberos_container_dn = {{ kerberos_container_dn }}
+   ldap_kdc_dn = {{ kerberos_service_dn }}
+   ldap_kadmind_dn = {{ kerberos_service_dn }}
+   ldap_service_password_file = {{ kerberos_service_keyfile }}
+   ldap_servers = ldap://localhost
+   ldap_conns_per_server = 5
+ }

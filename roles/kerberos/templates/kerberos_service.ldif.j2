@@ -1,7 +1,8 @@
 # Kerberos service account for KDC to bind to LDAP
-dn: {{ kdc_ldap_dn }}
-objectClass: simpleSecurityObject
-objectClass: organizationalRole
-cn: krb-svc
+dn: {{ kerberos_service_dn }}
+objectClass: top
+objectClass: person
+cn: kerberos-service
+sn: kerberos-service
 description: Kerberos LDAP Service Account
-userPassword: {{ kdc_ldap_pw }}
+userPassword: {{ kerberos_service_password }}

@@ -2,12 +2,11 @@ dn: {{ basedn }}
 objectClass: top
 objectClass: dcObject
 objectClass: organization
-o: Hadoop Test Directory
-dc: {{ basedn.split(',')[0].split('=')[1] }}
+o: Hadoop Test
+dc: hadoop
 
 dn: {{ ldap_rootdn }}
-objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: Manager
-description: LDAP Administrator
+description: Directory Manager
 userPassword: {{ ldap_rootpw }}
