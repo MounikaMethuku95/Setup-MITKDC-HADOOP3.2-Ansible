@@ -10,6 +10,7 @@ ldap_db_dn: "olcDatabase={2}mdb,cn=config"
 # Administrative DN and password
 ldap_rootdn: "cn=Manager,{{ basedn }}"
 ldap_rootpw: "supergirl123"
+ldap_hashed_pw: "{SSHA}vfqy8HtfnM5AM1pa1WJGBIuI5QHJVtPW"
 
 # ========= Kerberos Integration =========
 # Kerberos realm
