@@ -2,8 +2,10 @@
   ansible.builtin.service:
     name: krb5kdc
     state: restarted
+    enabled: yes
 
 - name: Restart kadmin
   ansible.builtin.service:
     name: kadmin
     state: restarted
+    enabled: yes

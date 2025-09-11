@@ -31,6 +31,8 @@
     owner: root
     group: root
     mode: '0600'
+  notify:
+    - Restart kadmin
 
 # ========= Create Kerberos container in LDAP =========
 - name: Create Kerberos container in LDAP
