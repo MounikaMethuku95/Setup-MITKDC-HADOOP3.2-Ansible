@@ -1,6 +1,4 @@
-# Kerberos container OU in LDAP
 dn: {{ kerberos_container_dn }}
 objectClass: top
-objectClass: organization
+objectClass: organizationalUnit
 ou: Kerberos
-description: Kerberos container for realm {{ kerberos_realm }}
