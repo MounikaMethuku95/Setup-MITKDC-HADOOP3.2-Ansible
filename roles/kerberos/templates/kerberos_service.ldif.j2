@@ -1,5 +1,6 @@
-dn: {{ kdc_ldap_dn }}
+dn: {{ kerberos_service_dn }}
 objectClass: simpleSecurityObject
 objectClass: organizationalRole
 cn: krb-svc
-userPassword: {{ kdc_ldap_pw }}
+description: Kerberos Service Account
+userPassword: {{ kerberos_service_pw }}
