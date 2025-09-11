@@ -10,7 +10,7 @@
   - openldap-servers
   - openldap-clients
 
-# ========= Ensure slapd is enabled and running =========
+# ========= Ensure slapd service is enabled and running =========
 - name: Ensure slapd is enabled and running
   ansible.builtin.service:
     name: slapd
@@ -26,35 +26,35 @@
     group: ldap
     mode: '0644'
 
-# ========= Set ownership of /var/lib/ldap =========
-- name: Set ownership for LDAP database directory
+# ========= Ensure correct permissions on /var/lib/ldap =========
+- name: Fix ownership of LDAP database directory
   ansible.builtin.file:
     path: /var/lib/ldap
-    state: directory
     owner: ldap
     group: ldap
     recurse: yes
 
-# ========= Render baseDN LDIF =========
-- name: Render baseDN LDIF (for debugging / backup)
+# ========= Configure rootDN (cn=Manager) =========
+- name: Render configure-rootdn.ldif
+  ansible.builtin.template:
+    src: configure-rootdn.ldif.j2
+    dest: /tmp/configure-rootdn.ldif
+
+- name: Apply configure-rootdn.ldif
+  ansible.builtin.command:
+    cmd: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  register: rootdn_config
+  changed_when: "'modifying' in rootdn_config.stdout or 'adding' in rootdn_config.stdout"
+
+# ========= Add baseDN and Manager entry =========
+- name: Render baseDN LDIF
   ansible.builtin.template:
     src: basedn.ldif.j2
     dest: /tmp/basedn.ldif
-    mode: '0600'
 
-# ========= Add baseDN entry =========
 - name: Add baseDN entry to LDAP
   ansible.builtin.command:
     cmd: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -H ldap://localhost -f /tmp/basedn.ldif
-  register: add_basedn
-  failed_when:
-    - add_basedn.rc != 0
-    - '"already exists" not in add_basedn.stderr'
-  changed_when: "'already exists' not in add_basedn.stderr"
-
-# ========= Verify baseDN =========
-- name: Verify baseDN exists
-  ansible.builtin.command:
-    cmd: ldapsearch -x -b "{{ basedn }}" -H ldap://localhost
-  register: verify_basedn
-  changed_when: false
+  register: basedn_add
+  failed_when: basedn_add.rc not in [0, 68]  # 68 = Already exists
+  changed_when: basedn_add.rc == 0
