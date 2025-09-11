@@ -92,9 +92,17 @@
     path: "{{ kerberos_db_dir }}/principal"
   register: krb5_db
 
-- name: Create Kerberos database with LDAP backend
-  ansible.builtin.command: "kdb5_util create -r {{ kerberos_realm }} -s"
-  when: not krb5_db.stat.exists
+- name: Create Kerberos database with LDAP backend (non-interactive)
+  expect:
+    command: "kdb5_util create -r {{ kerberos_realm }} -s"
+    responses:
+      "Enter KDC database master key:": "{{ kdc_master_pw }}"
+      "Re-enter KDC database master key to verify:": "{{ kdc_master_pw }}"
+  args:
+    creates: "{{ kerberos_db_marker }}"
+  register: kdb_create
+  failed_when: kdb_create.rc != 0
+
 
 # ========= Deploy kdc.conf =========
 - name: Deploy kdc.conf
