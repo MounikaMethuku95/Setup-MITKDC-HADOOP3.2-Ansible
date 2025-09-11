@@ -55,8 +55,8 @@
 
 - name: Create service.keyfile (one-line format)
   ansible.builtin.copy:
-    dest: "{{ kerberos_service_keyfile }}"
-    content: "{{ kerberos_service_dn }} {{ kerberos_service_pw }}"
+    dest: "{{ kerberos_db_dir }}/service.keyfile"
+    content: "cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test {{ krb_svc_pw }}\n"
     owner: root
     group: root
     mode: '0600'
