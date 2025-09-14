@@ -4,9 +4,9 @@
     name: "{{ item }}"
     state: present
   loop: 
-  - openldap
-  - openldap-servers
-  - openldap-clients
+    - openldap
+    - openldap-servers
+    - openldap-clients
 
 # --- Ensure slapd is running ---
 - name: Ensure slapd service is started and enabled
@@ -21,16 +21,7 @@
     path: /tmp
     state: directory
 
-# --- Configure RootDN ---
-- name: Render configure-rootdn.ldif
-  ansible.builtin.template:
-    src: configure-rootdn.ldif.j2
-    dest: /tmp/configure-rootdn.ldif
-
-- name: Apply RootDN config
-  ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
-
-# --- Add baseDN ---
+# --- Step 1: Add baseDN (must exist before RootDN config) ---
 - name: Render basedn.ldif
   ansible.builtin.copy:
     dest: /tmp/basedn.ldif
@@ -48,6 +39,20 @@
       description: Directory Manager
 
 - name: Add baseDN entry to LDAP
-  ansible.builtin.command: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -H ldap://localhost -f /tmp/basedn.ldif
+  ansible.builtin.command: >
+    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
+    -H ldap://localhost -f /tmp/basedn.ldif
   register: add_basedn
   failed_when: add_basedn.rc != 0 and "Already exists" not in add_basedn.stderr
+
+# --- Step 2: Configure RootDN in cn=config ---
+- name: Render configure-rootdn.ldif
+  ansible.builtin.template:
+    src: configure-rootdn.ldif.j2
+    dest: /tmp/configure-rootdn.ldif
+
+- name: Apply RootDN config
+  ansible.builtin.command: >
+    ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+  register: rootdn_config
+  failed_when: rootdn_config.rc != 0 and "Already exists" not in rootdn_config.stderr
