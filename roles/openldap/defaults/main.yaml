@@ -1,5 +1,5 @@
 # ========= OpenLDAP Configuration =========
-basedn: "dc=hadoop,dc=test"
+ldap_basedn: "dc=hadoop,dc=test"
 
 # For compatibility with templates
 ldap_suffix: "{{ basedn }}"
@@ -12,9 +12,9 @@ ldap_db_number: "2"
 ldap_db_dn: "olcDatabase={2}mdb,cn=config"
 
 # Administrative DN and password
-ldap_rootdn: "cn=Manager,{{ basedn }}"
+ldap_rootdn: "cn=Manager,dc=hadoop,dc=test"
 ldap_rootpw: "supergirl123"
-ldap_hashed_pw: "{SSHA}vfqy8HtfnM5AM1pa1WJGBIuI5QHJVtPW"
+ldap_rootpw_hashed: "{SSHA}YBwU6iCPh/oCegxO2THqzObz0q1AP306"
 
 # ========= Kerberos Integration =========
 # Kerberos realm

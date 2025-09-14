@@ -1,8 +1,24 @@
-- name: Deploy OpenLDAP, MITKDC, Hadoop and SSH
+- name: Deploy MITKDC-OPENLDAP-HADOOP3.2
   hosts: localhost
   become: yes
+  vars:
+    # LDAP Base and Manager
+    ldap_basedn: "dc=hadoop,dc=test"
+    ldap_rootdn: "cn=Manager,dc=hadoop,dc=test"
+    ldap_rootpw: "supergirl123"   # manager password
+
+    # Kerberos realm
+    kerberos_realm: "HADOOP.TEST"
+
+    # Kerberos service account
+    krb_svc_dn: "cn=krb-svc,ou=Kerberos,dc=hadoop,dc=test"
+    krb_svc_pw: "krbldap123"
+
+    # Kerberos DB paths
+    kerberos_db_dir: "/var/kerberos/krb5kdc"
+    kerberos_keyfile: "/var/kerberos/krb5kdc/service.keyfile"
+
   roles:
-    - role: openldap
-    - role: kerberos
-    - role: ssh        # must run before Hadoop
-    - role: hadoop
+    - openldap
+    - kerberos
+    - hadoop

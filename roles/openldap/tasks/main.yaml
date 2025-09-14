@@ -1,82 +1,53 @@
-# roles/openldap/tasks/main.yaml
-
-# ========= Install OpenLDAP packages =========
-- name: Install OpenLDAP server and client packages
+# --- Install OpenLDAP ---
+- name: Install OpenLDAP packages
   ansible.builtin.package:
     name: "{{ item }}"
     state: present
-  loop:
+  loop: 
   - openldap
   - openldap-servers
   - openldap-clients
 
-# --- Directories ---
-- name: Ensure slapd config and data directories exist
-  file:
-    path: "{{ item }}"
-    state: directory
-    owner: ldap
-    group: ldap
-    mode: '0755'
-  loop:
-    - /etc/openldap/slapd.d
-    - /var/lib/ldap
-
-# --- DB_CONFIG ---
-- name: Deploy DB_CONFIG
-  copy:
-    src: DB_CONFIG
-    dest: /var/lib/ldap/DB_CONFIG
-    owner: ldap
-    group: ldap
-    mode: '0644'
-
-- name: Set correct permissions on /var/lib/ldap
-  file:
-    path: /var/lib/ldap
-    state: directory
-    recurse: yes
-    owner: ldap
-    group: ldap
-    mode: '0700'
-
-# --- Enable slapd service ---
-- name: Enable and start slapd service
-  systemd:
+# --- Ensure slapd is running ---
+- name: Ensure slapd service is started and enabled
+  ansible.builtin.service:
     name: slapd
     state: started
     enabled: yes
 
-# --- Base DN entries ---
-- name: Render baseDN LDIF
-  template:
-    src: basedn.ldif.j2
-    dest: /tmp/basedn.ldif
+# --- Temporary directory ---
+- name: Ensure tmp directory exists
+  ansible.builtin.file:
+    path: /tmp
+    state: directory
 
-- name: Add baseDN entry to LDAP
-  command: >
-    ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}"
-    -H ldap://localhost -f /tmp/basedn.ldif
-  register: ldapadd_base
-  failed_when: ldapadd_base.rc not in [0,68]   # 68 = Already exists
-
-# --- Configure rootDN (cn=config) ---
+# --- Configure RootDN ---
 - name: Render configure-rootdn.ldif
-  template:
+  ansible.builtin.template:
     src: configure-rootdn.ldif.j2
     dest: /tmp/configure-rootdn.ldif
 
-- name: Apply rootDN and rootPW in cn=config
-  command: >
-    ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
+- name: Apply RootDN config
+  ansible.builtin.command: ldapmodify -Y EXTERNAL -H ldapi:/// -f /tmp/configure-rootdn.ldif
 
-# --- Verify base entries ---
-- name: Verify baseDN exists
-  command: >
-    ldapsearch -x -b "{{ basedn }}" -H ldap://localhost
-  register: verify_basedn
-  changed_when: false
+# --- Add baseDN ---
+- name: Render basedn.ldif
+  ansible.builtin.copy:
+    dest: /tmp/basedn.ldif
+    content: |
+      dn: {{ ldap_basedn }}
+      objectClass: top
+      objectClass: dcObject
+      objectClass: organization
+      o: Hadoop Test
+      dc: hadoop
 
-- name: Debug LDAP baseDN verification
-  debug:
-    msg: "{{ verify_basedn.stdout }}"
+      dn: {{ ldap_rootdn }}
+      objectClass: organizationalRole
+      cn: Manager
+      description: Directory Manager
+
+- name: Add baseDN entry to LDAP
+  ansible.builtin.command: ldapadd -x -D "{{ ldap_rootdn }}" -w "{{ ldap_rootpw }}" -H ldap://localhost -f /tmp/basedn.ldif
+  register: add_basedn
+  failed_when: add_basedn.rc != 0 and "Already exists" not in add_basedn.stderr
